@@ -3,11 +3,11 @@ import Field from './field';
 
 export default class Resource {
 
-    private id : number;
-    private label : string;
+    private id: number;
+    private label: string;
     private fields: Field[] = [];
-    private id_to_field :Map<number,Field>;
-    private name_to_field : Map<string,Field>;
+    private id_to_field: Map<number, Field> = new Map();
+    private name_to_field: Map<string, Field> = new Map();
     private api: Api;
 
     constructor(api: Api, json: any) {
@@ -18,16 +18,16 @@ export default class Resource {
         json.fields.forEach((field_json) => {
             let field = new Field(this.api, field_json);
             this.fields.push(field);
-            //this.id_to_field.set(field_json.id,field)
-            //this.name_to_field.set(field_json.name,field);
+            this.id_to_field.set(field_json.id, field)
+            this.name_to_field.set(field_json.name, field);
         })
     }
 
-    field(id: number | string): Field | null {
+    field(id): Field | null {
         if (Number.isFinite(id)) {
-            return this.id_to_field[id] ?? null;
+            return this.id_to_field.get(id) ?? null;
         } else {
-            return this.name_to_field[id] ?? null;
+            return this.name_to_field.get(id) ?? null;
         }
     }
 

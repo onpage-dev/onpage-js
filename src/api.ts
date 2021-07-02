@@ -27,6 +27,10 @@ export default class Api {
         return this.req_count;
     }
 
+    resetRequestCount() {
+        this.req_count = 0
+    }
+
     get(endpoint: string, params: object = []) {
         params['_method'] = 'get';
         return this.post(endpoint, params);
@@ -46,6 +50,6 @@ export default class Api {
     }
 
     query(resource: string) {
-        return new Query(this,resource)
+        return new Query(this, resource)
     }
 }
