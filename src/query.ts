@@ -1,6 +1,7 @@
 import Thing from './thing';
 import Api from './api';
 import FieldLoader from './fieldloader'
+import Field from './field'
 
 export default class Query {
     private api: Api;
@@ -15,7 +16,7 @@ export default class Query {
         this.field_loader = new FieldLoader();
     }
 
-    async first() {
+    async first(): Promise<Thing> {
         let res = await this.api.get('things', this.build('first'));
         return res ? new Thing(this.api, res.data) : null;
     }
@@ -32,13 +33,13 @@ export default class Query {
                 'use_field_names': true,
             }
         }
-        //     if ($this -> related_to) {
-        //         $data['related_to'] = $this -> related_to;
-        //     }
+        if (this.related_to) {
+            data['related_to'] = this.related_to;
+        }
         return data;
     }
 
-    async all() {
+    async all(): Promise<Thing[]> {
         let res = await this.api.get('things', this.build('list'));
         let ret = [];
         res.data.forEach((thing) => {
@@ -47,53 +48,37 @@ export default class Query {
         return ret
     }
 
-    where(field : string, op : string | number, value : string | number = null) {
-    if ((value == null)) {
-        value = op;
-        op = '=';
+    where(field: string, op: string | number, value: string | number = null) {
+        if ((value == null)) {
+            value = op;
+            op = '=';
+        }
+        let filter = [field, op, value];
+        this.filters.push(filter);
+        return this;
     }
-    let filter = [field, op, value];
-    this.filters.push(filter);
-    return this;
-}
+
+    with(relations: any) {
+        if (typeof relations === 'string' || relations instanceof String) {
+            relations = [relations];
+        }
+        relations.forEach((rel) => {
+            let path = rel.split('.');
+            let loader = this.field_loader;
+
+            path.forEach((rel_name) => {
+                loader = loader.setRelation(rel_name);
+            })
+        })
+        return this;
+    }
+
+    relatedTo(field: Field, thing_id: number): Query {
+        this.related_to = {
+            'field_id': field.id,
+            'thing_id': thing_id,
+        };
+        return this;
+    }
 
 }
-
-
-// static function fromResponse(Api $api, array $json_things): self {
-//     $ret = new self();
-//     foreach($json_things as $json) {
-//         $ret -> push(new Thing($api, $json));
-//     }
-//     return $ret;
-// }
-
-
-
-
-// public function with (array | string $relations)
-// {
-//     if (is_string($relations)) {
-//         $relations = [$relations];
-//     }
-//     foreach($relations as $rel) {
-//         $path = explode('.', $rel);
-//         $loader = $this -> field_loader;
-
-//         foreach($path as $rel_name) {
-//             $loader = $loader -> setRelation($rel_name);
-//         }
-//     }
-//     return $this;
-// }
-
-// function relatedTo(Field $field, int $thing_id): QueryBuilder {
-//     $this -> related_to =[
-//         'field_id' => $field -> id,
-//         'thing_id' => $thing_id,
-//     ];
-//     return $this;
-// }
-
-
-// }

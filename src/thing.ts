@@ -2,32 +2,27 @@ import Api from './api'
 import OpFile from './file'
 import Resource from './resource'
 import Field from './field'
+import Query from './query'
 
 export default class Thing {
     public json: any = {};
     public id: number;
     private api: Api;
-    private relations : number[] = [];
+    private relations: any[] = [];
 
     constructor(api: Api, json: any) {
         this.api = api;
         this.json = json;
         this.id = json.id;
-        // json.relations.forEach( ( field_name.related_things) => {
-        //      this.setRelation(this.resource().field(field_name), ThingCollection:: fromResponse($api, $related_things));
-        //  }
-//     foreach($json -> relations as $field_name => $related_things) {
-//         $this -> setRelation($this -> resource() -> field($field_name), ThingCollection:: fromResponse($api, $related_things));
-//     }
+        Object.keys(json.relations).forEach((field_name, related_things) => {
+            this.setRelation(this.resource().field(field_name), this.fromResponse(api, related_things));
+        })
     }
 
     val(field_name: string, lang: string = null) {
         let field = this.resolveField(field_name);
-        //console.log(field)
         let codename = field.identifier(lang);
-        //console.log(codename)
         let def = field.is_multiple ? [] : null;
-        //console.log(def)
         let values = this.json.fields[codename] ?? def;
         if (values == null) return def;
         if (!field.is_multiple) values = [values];
@@ -40,11 +35,13 @@ export default class Thing {
     }
 
     resolveField(field_name: string): Field {
+        //console.log("NAME", field_name)
         let res = this.resource();
-        //console.log(res);
+        //console.log("RES:", res.name)
         let field = res.field(field_name);
-        //(field)
-        if (!field) throw new Error("Cannot find field $field_name");
+        //console.log("F:", field.name)
+        //console.log("N:", field_name)
+        if (!field) throw new Error("Cannot find field ${field_name}");
         return field;
     }
 
@@ -52,62 +49,55 @@ export default class Thing {
         return this.api.schema.resource(this.json.resource_id);
     }
 
-    rel( path : string) {
-        let field = this.resolveField(path)
-        let codename = field.identifier()
-        let rel = this.relations[codename]
-        return rel
-
+    async rel(path: any) {
+        if (typeof path === 'string' || path instanceof String) {
+            path = path.split('.');
+        }
+        let field_name = path.shift(); // remove first
+        //console.log("SHIFTED:", field_name)
+        let field = this.resolveField(field_name);
+        let codename = field.identifier();
+        if (!(codename in this.relations)) {
+            let plus = []
+            if (path.length !== 0) {
+                plus.push(path.join('.'));
+            }
+            await this.loadRelation(field, plus);
+        }
+        let rel = this.relations[codename];
+        // console.log("REL BEFORE:", rel)
+        // console.log("PATH", path)
+        if (path.length !== 0) {
+            console.log("PATH dentro", path)
+            rel = rel.map(async (related) => {
+                return await related.rel(path)
+            });
+            // rel = rel.flat().filter((elem, index, self) => {
+            //     return index === self.indexOf(elem);
+            // })
+        }
+        // console.log("REL AFTER:", rel)
+        return rel;
     }
+
+    setRelation(field: Field, things: Thing[]) {
+        this.relations[field.identifier()] = things;
+        //console.log("RELATIONS SET:", this.relations)
+    }
+
+    fromResponse(api: Api, json_things: any): Thing[] {
+        let ret = [];
+        Object.keys(json_things).forEach((json) => {
+            ret.push(new Thing(api, json));
+        })
+        return ret;
+    }
+
+
+    async loadRelation(field: Field, plus: string[] = []) {
+        let result = await this.api.query(field.relatedResource().name).relatedTo(field, this.id).with(plus).all();
+        //console.log("RESULT:", result)
+        this.setRelation(field, result)
+    }
+
 }
-
-
-//     function __construct(Api $api, object $json) {
-//     foreach($json -> relations as $field_name => $related_things) {
-//         $this -> setRelation($this -> resource() -> field($field_name), ThingCollection:: fromResponse($api, $related_things));
-//     }
-// }
-
-
-// function rel(string|array $path): ThingCollection {
-//     if (is_string($path)) {
-//         $path = explode('.', $path);
-//     }
-//     $field_name = array_shift($path); // remove first
-//     $field = $this -> resolveField($field_name);
-//     $codename = $field -> identifier();
-//     if (!isset($this -> relations[$codename])) {
-//         $with = [];
-//         if (!empty($path)) {
-//             $with[] = implode('.', $path);
-//         }
-//         $this -> loadRelation($field, $with);
-//     }
-//     $rel = $this -> relations[$codename];
-
-//     if (!empty($path)) {
-//         $rel = $rel -> map(function ($related) use($path) {
-//             return $related -> rel($path);
-//         }) -> flatten() -> unique('id');
-//     }
-//     return $rel;
-// }
-
-// private function resolveField(string $field_name): Field {
-//     $res = $this -> resource();
-//     $field = $res -> field($field_name);
-//     if (!$field) throw new Exceptions\FieldNotFound("Cannot find field $field_name");
-//     return $field;
-// }
-
-// private function loadRelation(Field $field, array $with = []) {
-//     $result = $this -> api -> query($field -> relatedResource() -> name)
-//         -> relatedTo($field, $this -> id)
-//         ->with ($with)
-//     -> all();
-//     $this -> setRelation($field, $result);
-// }
-
-// private function setRelation(Field $field, ThingCollection $things) {
-//     $this -> relations[$field -> identifier()] = $things;
-// }

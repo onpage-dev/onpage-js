@@ -9,11 +9,12 @@ export default class Resource {
     private id_to_field: Map<number, Field> = new Map();
     private name_to_field: Map<string, Field> = new Map();
     private api: Api;
+    public name: string;
 
     constructor(api: Api, json: any) {
         this.api = api;
         this.id = json.id;
-        //this.name = json.name;
+        this.name = json.name;
         this.label = json.label;
         json.fields.forEach((field_json) => {
             let field = new Field(this.api, field_json);
@@ -23,10 +24,12 @@ export default class Resource {
         })
     }
 
-    field(id): Field | null {
-        if (Number.isFinite(id)) {
+    field(id: any): Field | null {
+        if (typeof id === 'number') {
             return this.id_to_field.get(id) ?? null;
         } else {
+            //console.log("ID STRING:", id)
+            //console.log(this.name_to_field.get(id))
             return this.name_to_field.get(id) ?? null;
         }
     }

@@ -23,8 +23,8 @@ export default class Schema {
         })
     }
 
-    resource(id): Resource | null {
-        if (Number.isFinite(id)) {
+    resource(id: any): Resource | null {
+        if (typeof id === 'number') {
             return this.id_to_resource.get(id) ?? null;
         } else {
             return this.name_to_resource.get(id) ?? null;

@@ -35,6 +35,7 @@ export default class Field {
             }
             identifier = `${identifier}_${lang}`;
         }
+        //console.log("IDENTIFIER:", identifier)
         return identifier;
     }
 
