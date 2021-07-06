@@ -17,9 +17,7 @@ export default class Api {
     }
 
     async loadSchema() {
-        //console.log('i load the schema')
         let res = await this.get('schema', {})
-        //console.log('i have the schema response!')
         this.schema = new Schema(this, res.data);
     }
 

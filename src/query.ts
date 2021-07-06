@@ -41,11 +41,7 @@ export default class Query {
 
     async all(): Promise<Thing[]> {
         let res = await this.api.get('things', this.build('list'));
-        let ret = [];
-        res.data.forEach((thing) => {
-            ret.push(new Thing(this.api, thing))
-        })
-        return ret
+        return Thing.fromResponse(this.api, res.data)
     }
 
     where(field: string, op: string | number, value: string | number = null) {

@@ -2,20 +2,21 @@ import Api from './api'
 import OpFile from './file'
 import Resource from './resource'
 import Field from './field'
-import Query from './query'
+//import Query from './query'
+import { uniqueId, forEach, flatten, uniqBy } from '@s-libs/micro-dash'
 
 export default class Thing {
     public json: any = {};
     public id: number;
     private api: Api;
-    private relations: any[] = [];
+    private relations: Map<string, Thing[]> = new Map();
 
     constructor(api: Api, json: any) {
         this.api = api;
         this.json = json;
         this.id = json.id;
-        Object.keys(json.relations).forEach((field_name, related_things) => {
-            this.setRelation(this.resource().field(field_name), this.fromResponse(api, related_things));
+        forEach(json.relations, (related_things, field_name) => {
+            this.setRelation(this.resource().field(field_name), Thing.fromResponse(api, related_things));
         })
     }
 
@@ -35,13 +36,9 @@ export default class Thing {
     }
 
     resolveField(field_name: string): Field {
-        //console.log("NAME", field_name)
         let res = this.resource();
-        //console.log("RES:", res.name)
         let field = res.field(field_name);
-        //console.log("F:", field.name)
-        //console.log("N:", field_name)
-        if (!field) throw new Error("Cannot find field ${field_name}");
+        if (!field) throw new Error(`Cannot find field ${field_name}`);
         return field;
     }
 
@@ -49,54 +46,50 @@ export default class Thing {
         return this.api.schema.resource(this.json.resource_id);
     }
 
-    async rel(path: any) {
-        if (typeof path === 'string' || path instanceof String) {
+    async rel(path: string | string[]): Promise<Thing[]> {
+        if (typeof path == 'string') {
             path = path.split('.');
         }
+        if (!path.length) {
+            throw new Error("Called rel with empty path");
+        }
+
         let field_name = path.shift(); // remove first
-        //console.log("SHIFTED:", field_name)
         let field = this.resolveField(field_name);
         let codename = field.identifier();
-        if (!(codename in this.relations)) {
+        if (!this.relations.has(codename)) {
             let plus = []
-            if (path.length !== 0) {
-                plus.push(path.join('.'));
+            if (path.length) {
+                plus.push(path.join('.'))
             }
             await this.loadRelation(field, plus);
         }
-        let rel = this.relations[codename];
-        // console.log("REL BEFORE:", rel)
-        // console.log("PATH", path)
-        if (path.length !== 0) {
-            console.log("PATH dentro", path)
-            rel = rel.map(async (related) => {
-                return await related.rel(path)
-            });
-            // rel = rel.flat().filter((elem, index, self) => {
-            //     return index === self.indexOf(elem);
-            // })
+        let rel = this.relations.get(codename);
+        if (path.length) {
+            let ret: Map<number, Thing> = new Map()
+            let related = await Promise.all(rel.map(async (thing): Promise<Thing[]> => {
+                let things: Promise<Thing[]> = thing.rel([...path])
+                return things
+            }))
+            rel = uniqBy(flatten(related), x => x.id)
         }
-        // console.log("REL AFTER:", rel)
         return rel;
     }
 
     setRelation(field: Field, things: Thing[]) {
-        this.relations[field.identifier()] = things;
-        //console.log("RELATIONS SET:", this.relations)
+        this.relations.set(field.identifier(), things)
     }
 
-    fromResponse(api: Api, json_things: any): Thing[] {
-        let ret = [];
-        Object.keys(json_things).forEach((json) => {
-            ret.push(new Thing(api, json));
-        })
-        return ret;
+    static fromResponse(api: Api, json_things: object[]): Thing[] {
+        return json_things.map(json => new Thing(api, json))
     }
-
 
     async loadRelation(field: Field, plus: string[] = []) {
-        let result = await this.api.query(field.relatedResource().name).relatedTo(field, this.id).with(plus).all();
-        //console.log("RESULT:", result)
+        let result = await this.api
+            .query(field.relatedResource().name)
+            .relatedTo(field, this.id)
+            .with(plus)
+            .all();
         this.setRelation(field, result)
     }
 

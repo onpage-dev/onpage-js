@@ -1,6 +1,3 @@
-//import 
-
-
 export default class FieldLoader {
     public relation: string;
     public fields: any[] = ['+'];
@@ -9,9 +6,6 @@ export default class FieldLoader {
     constructor(relation: string = null) {
         this.relation = relation;
     }
-
-
-
 
     setRelation(rel_name: string): FieldLoader {
         if (!(this.relations.get(rel_name))) {
