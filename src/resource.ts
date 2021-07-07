@@ -1,4 +1,4 @@
-import Api from './api';
+import { Api } from './api'
 import Field from './field';
 
 export default class Resource {

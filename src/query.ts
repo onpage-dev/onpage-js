@@ -1,5 +1,5 @@
 import Thing from './thing';
-import Api from './api';
+import { Api } from './api'
 import FieldLoader from './fieldloader'
 import Field from './field'
 

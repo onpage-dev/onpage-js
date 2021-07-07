@@ -1,4 +1,4 @@
-import Api from './api'
+import { Api } from './api'
 import OpFile from './file'
 
 import { expect } from "chai";

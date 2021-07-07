@@ -2,7 +2,7 @@ import axios, { AxiosInstance } from "axios";
 import Schema from './schema';
 import Query from './query';
 
-export default class Api {
+export class Api {
     http: AxiosInstance;
     req_count: number = 0;
     schema: Schema;
