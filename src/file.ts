@@ -11,10 +11,21 @@ export default class OpFile {
         this.token = file.token;
     }
 
-    link(opts: string[] = []): string {
+    link(opts: Object = {}): string {
         let suffix = '';
-        if (this.isImage() && ('x' in opts) || 'y' in opts) {
-            suffix += `.${opts['x']}x${opts['y']}`;
+        if (this.isImage()) {
+
+            if ('x' in opts) {
+                suffix += `.${opts['x']}x`;
+
+                if ('y' in opts) {
+                    suffix += `${opts['y']}`;
+                }
+            } else {
+                if ('y' in opts) {
+                    suffix += `.x${opts['y']}`;
+                }
+            }
 
             if ('contain' in opts) {
                 suffix += '-contain';

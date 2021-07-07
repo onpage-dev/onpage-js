@@ -9,7 +9,6 @@ npm install onpage-js
 yarn add onpage-js
 ```
 
-
 ## Usage
 
 ### Setup
@@ -24,26 +23,26 @@ let api = new Api('acme-inc', api_token)
 console.log(api.schema.label)
 
 // Retrieve a resource given its name or ID
-let res = api.schema.res('products');
-foreach (res.fields as field) {
-    console.log(field.label)
-    console.log(field.name)
-    console.log(field.type)
-    console.log(field.is_multiple)
-    console.log(field.is_translatable)
-}
+    let res = api.schema.resource('products');
+    res.fields.forEach((field) => {
+      console.log(field.label)
+      console.log(field.name)
+      console.log(field.type)
+      console.log(field.is_multiple)
+      console.log(field.is_translatable)
+    })
 ```
 
 ### Query your data
 ```js
 // Retrieve all records of a resource (returns an array of Thing)
-let products = api.query('products').all();
-foreach (products as prod) {
+    let products = await api.query('products').all();
+    products.forEach((prod) => {
     // ...
-}
+})
 
 // Get only the first item
-let prod = api.query('products').first();
+    let prod = await api.query('products').first();
 ```
 
 ### Filters
@@ -82,45 +81,45 @@ product.val('specsheet').link() // https://acme-inc.onpage.it/api/storage/R417C0
 To turn images into a thumbnail add an array of options as shown below:
 ```js
 // maintain proportions width 200px
-product.val('cover_image').link(['x' => 200])
+prod.val('cover_image').link({'x' : 200})
 
-// maintain proportions height 100px
-product.val('cover_image').link(['y' => 100])
+// // maintain proportions height 100px
+prod.val('cover_image').link({'y' : 100})
 
-// crop image to width 200px and height 100px
-product.val('cover_image').link(['x' => 200, 'y' => 100])
+// // crop image to width 200px and height 100px
+prod.val('cover_image').link({'x' : 200, 'y' : 100})
 
-// maintain proportions and contain in a rectangle of width 200px and height 100px 
-product.val('cover_image').link(['x' => 200, 'y' => 100, 'contain' => true])
+// // maintain proportions and contain in a rectangle of width 200px and height 100px 
+prod.val('cover_image').link({'x' : 200, 'y' : 100, 'contain' : true))
 
-// convert the image to png (default is jpg)
-product.val('cover_image').link(['x' => 200, 'format' => 'png'])
+// // convert the image to png (default is jpg)
+prod.val('cover_image').link({'x' : 200, 'ext' : 'png'})
 ```
 
 ### Get thing relations
 ```js
-let cat = api.query('categories').first();
-let subcategories = cat.rel('subcategories');
-foreach (subcategories as subcategory) {
+let cat = await api.query('categories').first();
+let subcategories = await cat.rel('subcategories');
+subcategories.forEach((subcategory) => {
     console.log(subcategory.val('name'))
-}
+})
 
 // You can also get nested relations in one shot
-let products = cat.rel('subcategories.products');
+let products = await cat.rel('subcategories.products');
 ```
 
 ### Preload thing relations
 ```js
-let cat = api.query('categories')
+let cat = await api.query('categories')
     .with('subcategories')
     .first();
-let subcategories = cat.rel('subcategories');
-foreach (subcategories as subcategory) {
+let subcategories = await cat.rel('subcategories');
+    subcategories.forEach((subcategory) => {
     console.log(subcategory.val('name'))
-}
+})
 
 // You can also preload nested subcategories
-let cat = api.query('categories')
+let cat = await api.query('categories')
     .with('subcategories.articles.colors')
     .first();
 ```
