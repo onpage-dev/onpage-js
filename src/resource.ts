@@ -5,7 +5,7 @@ export default class Resource {
 
     private id: number;
     private label: string;
-    private fields: Field[] = [];
+    public fields: Field[] = [];
     private id_to_field: Map<number, Field> = new Map();
     private name_to_field: Map<string, Field> = new Map();
     private api: Api;
