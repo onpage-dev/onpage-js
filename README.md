@@ -72,7 +72,6 @@ For `image` and `file` fields, the returned value will be an instance of `OpFile
 To get a file or image url use the `.link()` function. The link will point to the original file.
 
 ```js
-// original size
 product.val('specsheet').name // icecream-spec.pdf
 product.val('specsheet').token // R417C0YAM90RF
 product.val('specsheet').link() // https://acme-inc.onpage.it/api/storage/R417C0YAM90RF?name=icecream-spec.pdf
@@ -83,16 +82,16 @@ To turn images into a thumbnail add an array of options as shown below:
 // maintain proportions width 200px
 prod.val('cover_image').link({'x' : 200})
 
-// // maintain proportions height 100px
+// maintain proportions height 100px
 prod.val('cover_image').link({'y' : 100})
 
-// // crop image to width 200px and height 100px
+// crop image to width 200px and height 100px
 prod.val('cover_image').link({'x' : 200, 'y' : 100})
 
-// // maintain proportions and contain in a rectangle of width 200px and height 100px 
+// maintain proportions and contain in a rectangle of width 200px and height 100px 
 prod.val('cover_image').link({'x' : 200, 'y' : 100, 'contain' : true))
 
-// // convert the image to png (default is jpg)
+// convert the image to png (default is jpg)
 prod.val('cover_image').link({'x' : 200, 'ext' : 'png'})
 ```
 
