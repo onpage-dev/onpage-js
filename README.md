@@ -23,8 +23,8 @@ let api = new Api('acme-inc', api_token)
 console.log(api.schema.label)
 
 // Retrieve a resource given its name or ID
-    let res = api.schema.resource('products');
-    res.fields.forEach((field) => {
+let res = api.schema.resource('products');
+res.fields.forEach((field) => {
       console.log(field.label)
       console.log(field.name)
       console.log(field.type)
@@ -36,13 +36,13 @@ console.log(api.schema.label)
 ### Query your data
 ```js
 // Retrieve all records of a resource (returns an array of Thing)
-    let products = await api.query('products').all();
-    products.forEach((prod) => {
+let products = await api.query('products').all();
+products.forEach((prod) => {
     // ...
 })
 
 // Get only the first item
-    let prod = await api.query('products').first();
+let prod = await api.query('products').first();
 ```
 
 ### Filters
@@ -62,10 +62,10 @@ api.query('products')
 
 ### Get thing values
 ```js
-let cat = api.query('categories').first();
+let cat = await api.query('categories').first();
 console.log(cat.val('name'))
 console.log(cat.val('dimension'))
-console.log(cat.val('description', 'fr'); // you can specify )a language
+console.log(cat.val('description', 'fr')); // you can specify )a language
 ```
 #### Files
 For `image` and `file` fields, the returned value will be an instance of `OpFile`.
@@ -114,7 +114,7 @@ let cat = await api.query('categories')
     .with('subcategories')
     .first();
 let subcategories = await cat.rel('subcategories');
-    subcategories.forEach((subcategory) => {
+subcategories.forEach((subcategory) => {
     console.log(subcategory.val('name'))
 })
 
