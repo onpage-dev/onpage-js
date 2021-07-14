@@ -1,9 +1,9 @@
 import { Api } from './api'
 import Field from './field';
-
+export type ResourceID = number
 export default class Resource {
 
-    private id: number;
+    private id: ResourceID;
     private label: string;
     public fields: Field[] = [];
     private id_to_field: Map<number, Field> = new Map();

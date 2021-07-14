@@ -1,8 +1,8 @@
 import { Api } from './api'
 import Resource from './resource';
-
+export type SchemaID = number;
 export default class Schema {
-    public id: number;
+    public id: SchemaID;
     public label: string;
     private api: Api;
     private id_to_resource: Map<number, Resource> = new Map();

@@ -16,7 +16,7 @@ export default class Query {
         this.field_loader = new FieldLoader();
     }
 
-    async first(): Promise<Thing> {
+    async first(): Promise<Thing | null> {
         let res = await this.api.get('things', this.build('first'));
         return res ? new Thing(this.api, res.data) : null;
     }
@@ -44,7 +44,7 @@ export default class Query {
         return Thing.fromResponse(this.api, res.data)
     }
 
-    where(field: string, op: string | number, value: string | number = null) {
+    where(field: string, op: string | number, value?: string | number) {
         if ((value == null)) {
             value = op;
             op = '=';
@@ -54,8 +54,8 @@ export default class Query {
         return this;
     }
 
-    with(relations: any) {
-        if (typeof relations === 'string' || relations instanceof String) {
+    with(relations: string | string[]) {
+        if (typeof relations === 'string') {
             relations = [relations];
         }
         relations.forEach((rel) => {

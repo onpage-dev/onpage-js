@@ -2,12 +2,11 @@ import { Api } from './api'
 import OpFile from './file'
 import Resource from './resource'
 import Field from './field'
-//import Query from './query'
-import { uniqueId, forEach, flatten, uniqBy } from '@s-libs/micro-dash'
-
+import { uniqueId, forEach, flatten, uniqBy } from 'lodash'
+export type ThingID = number
 export default class Thing {
     public json: any = {};
-    public id: number;
+    public id: ThingID;
     private api: Api;
     private relations: Map<string, Thing[]> = new Map();
 
@@ -16,11 +15,11 @@ export default class Thing {
         this.json = json;
         this.id = json.id;
         forEach(json.relations, (related_things, field_name) => {
-            this.setRelation(this.resource().field(field_name), Thing.fromResponse(api, related_things));
+            this.setRelation(this.resource().field(field_name)!, Thing.fromResponse(api, related_things));
         })
     }
 
-    val(field_name: string, lang: string = null) {
+    val(field_name: string, lang?: string) {
         let field = this.resolveField(field_name);
         let codename = field.identifier(lang);
         let def = field.is_multiple ? [] : null;
@@ -28,7 +27,7 @@ export default class Thing {
         if (values == null) return def;
         if (!field.is_multiple) values = [values];
         if (['file', 'image'].includes(field.type)) {
-            values = values.map((v) => {
+            values = values.map((v: any) => {
                 return new OpFile(this.api, v);
             });
         }
@@ -43,7 +42,7 @@ export default class Thing {
     }
 
     resource(): Resource {
-        return this.api.schema.resource(this.json.resource_id);
+        return this.api.schema.resource(this.json.resource_id)!;
     }
 
     async rel(path: string | string[]): Promise<Thing[]> {
@@ -54,7 +53,7 @@ export default class Thing {
             throw new Error("Called rel with empty path");
         }
 
-        let field_name = path.shift(); // remove first
+        let field_name = path.shift()!; // remove first
         let field = this.resolveField(field_name);
         let codename = field.identifier();
         if (!this.relations.has(codename)) {
@@ -64,7 +63,7 @@ export default class Thing {
             }
             await this.loadRelation(field, plus);
         }
-        let rel = this.relations.get(codename);
+        let rel = this.relations.get(codename)!;
         if (path.length) {
             let ret: Map<number, Thing> = new Map()
             let related = await Promise.all(rel.map(async (thing): Promise<Thing[]> => {
