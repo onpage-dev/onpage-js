@@ -3,7 +3,7 @@ import { Api } from './api'
 import FieldLoader from './fieldloader'
 import Field from './field'
 
-export default class Query {
+export class Query {
     private api: Api;
     private resource: string;
     private filters: any[] = []

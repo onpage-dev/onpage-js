@@ -1,6 +1,6 @@
 import axios, { AxiosInstance } from "axios";
 import Schema from './schema';
-import Query from './query';
+import {Query} from './query';
 
 export class Api {
     http: AxiosInstance;
