@@ -1,7 +1,7 @@
 import { Api } from './api'
-import Resource from './resource';
+import {Resource} from './resource';
 export type SchemaID = number;
-export default class Schema {
+export class Schema {
     public id: SchemaID;
     public label: string;
     private api: Api;

@@ -1,5 +1,5 @@
 import axios, { AxiosInstance } from "axios";
-import Schema from './schema';
+import {Schema} from './schema';
 import {Query} from './query';
 
 export class Api {

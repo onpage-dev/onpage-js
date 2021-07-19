@@ -1,7 +1,7 @@
-import Thing from './thing';
+import {Thing} from './thing';
 import { Api } from './api'
-import FieldLoader from './fieldloader'
-import Field from './field'
+import {FieldLoader} from './fieldloader'
+import {Field} from './field'
 
 export class Query {
     private api: Api;

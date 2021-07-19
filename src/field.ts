@@ -1,7 +1,7 @@
 import { Api } from './api'
-import Resource from './resource'
+import {Resource} from './resource'
 export type FieldID = number
-export default class Field {
+export class Field {
   public id: FieldID
   public label: string
   public is_translatable: boolean

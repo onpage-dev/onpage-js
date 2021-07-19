@@ -1,5 +1,5 @@
 import { Api } from './api'
-import OpFile from './file'
+import {OpFile} from './file'
 
 import { expect } from "chai";
 import { resolve } from "path"

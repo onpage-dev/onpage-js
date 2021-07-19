@@ -1,10 +1,10 @@
 import { Api } from './api'
-import OpFile from './file'
-import Resource from './resource'
-import Field from './field'
+import {OpFile} from './file'
+import {Resource} from './resource'
+import {Field} from './field'
 import { uniqueId, forEach, flatten, uniqBy } from "@s-libs/micro-dash";
 export type ThingID = number
-export default class Thing {
+export class Thing {
     public json: any = {};
     public id: ThingID;
     private api: Api;

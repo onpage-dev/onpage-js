@@ -1,4 +1,4 @@
-export default class FieldLoader {
+export class FieldLoader {
     public relation: string;
     public fields: any[] = ['+'];
     public relations: Map<string, FieldLoader> = new Map();

@@ -1,7 +1,7 @@
 import { Api } from './api'
-import Field from './field';
+import {Field} from './field';
 export type ResourceID = number
-export default class Resource {
+export class Resource {
 
     private id: ResourceID;
     private label: string;

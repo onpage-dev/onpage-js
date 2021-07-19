@@ -1,6 +1,6 @@
 import { Api } from './api'
 
-export default class OpFile {
+export class OpFile {
     public name: string;
     public token: string;
     private api: Api
