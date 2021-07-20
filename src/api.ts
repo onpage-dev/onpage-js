@@ -1,6 +1,7 @@
 import axios, { AxiosInstance } from "axios";
 import {Schema} from './schema';
 import {Query} from './query';
+import { ResourceID } from "./resource";
 
 export class Api {
     http: AxiosInstance;
@@ -9,7 +10,11 @@ export class Api {
     api_url: string;
 
     constructor(company: string, token: string) {
-        this.api_url = `https://${company}.onpage.it/api`
+        if (company.match(/^https?:/)) {
+            this.api_url = company.replace(/\/$/, '') // remove trailing /
+        } else {
+            this.api_url = `https://${company}.onpage.it/api`
+        }
         this.http = axios.create({
             baseURL: `${this.api_url}/view/${token}`,
             timeout: 60000,
@@ -47,7 +52,10 @@ export class Api {
         return url;
     }
 
-    query(resource: string) {
-        return new Query(this, resource)
+    query(resource: ResourceID) {
+        return new Query(this, {
+            type: 'root',
+            resource,
+        })
     }
 }

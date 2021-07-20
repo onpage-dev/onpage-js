@@ -15,7 +15,7 @@ export class Thing {
         this.json = json;
         this.id = json.id;
         forEach(json.relations, (related_things, field_name) => {
-            this.setRelation(this.resource().field(field_name)!, Thing.fromResponse(api, related_things));
+            this.setRelation(String(field_name), Thing.fromResponse(api, related_things));
         })
     }
 
@@ -75,8 +75,8 @@ export class Thing {
         return rel;
     }
 
-    setRelation(field: Field, things: Thing[]) {
-        this.relations.set(field.identifier(), things)
+    setRelation(alias: string, things: Thing[]) {
+        this.relations.set(alias, things);
     }
 
     static fromResponse(api: Api, json_things: object[]): Thing[] {
@@ -89,7 +89,7 @@ export class Thing {
             .relatedTo(field, this.id)
             .with(plus)
             .all();
-        this.setRelation(field, result)
+        this.setRelation(field.identifier(), result)
     }
 
 }

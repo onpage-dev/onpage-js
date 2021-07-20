@@ -1,6 +1,5 @@
 export * from './api'
 export * from './field'
-export * from './fieldloader'
 export * from './file'
 export * from './query'
 export * from './resource'

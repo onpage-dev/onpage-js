@@ -1,6 +1,6 @@
 import { Api } from './api'
 import {Resource} from './resource'
-export type FieldID = number
+export type FieldID = number | string
 export class Field {
   public id: FieldID
   public label: string

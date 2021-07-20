@@ -1,6 +1,6 @@
 import { Api } from './api'
 import {Field} from './field';
-export type ResourceID = number
+export type ResourceID = string | number
 export class Resource {
 
     private id: ResourceID;
@@ -28,8 +28,6 @@ export class Resource {
         if (typeof id === 'number') {
             return this.id_to_field.get(id) ?? null;
         } else {
-            //console.log("ID STRING:", id)
-            //console.log(this.name_to_field.get(id))
             return this.name_to_field.get(id) ?? null;
         }
     }

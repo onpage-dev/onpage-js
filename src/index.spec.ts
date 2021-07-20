@@ -77,10 +77,11 @@ describe("NESTED RELATIONS ONDEMAND", () => {
     expect(api.getRequestCount()).to.equal(1);
     api.resetRequestCount()
     let arts = await cap.rel('argomenti.prodotti.articoli')
+    expect(api.getRequestCount()).to.equal(0);
     let prods = await cap.rel('argomenti.prodotti')
+    expect(api.getRequestCount()).to.equal(0);
     expect(prods.length).to.equal(23);
     expect(arts.length).to.equal(76);
-    expect(api.getRequestCount()).to.equal(0);
   });
 });
 
