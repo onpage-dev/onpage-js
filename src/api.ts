@@ -1,28 +1,37 @@
 import axios, { AxiosInstance } from "axios";
-import {Schema} from './schema';
+import {Schema, SchemaID} from './schema';
 import {Query} from './query';
 import { ResourceID } from "./resource";
+import { isNumber, isString } from "@s-libs/micro-dash";
 
 export class Api {
     http: AxiosInstance;
     req_count: number = 0;
     schema: Schema;
     api_url: string;
+    schema_id?: SchemaID // setting this will bypass the api and use the direct api
 
-    constructor(company: string, token: string) {
+    constructor(company: string, token: string, schema_id?: SchemaID) {
+        this.schema_id = schema_id;
+
         if (company.match(/^https?:/)) {
             this.api_url = company.replace(/\/$/, '') // remove trailing /
         } else {
             this.api_url = `https://${company}.onpage.it/api`
         }
         this.http = axios.create({
-            baseURL: `${this.api_url}/view/${token}`,
-            timeout: 60000,
+          baseURL: this.schema_id ? this.api_url : `${this.api_url}/view/${token}`,
+          timeout: 60000,
+          headers: {
+              Authorization: token
+          }
         });
     }
 
     async loadSchema() {
-        let res = await this.get('schema', {})
+        let res = this.schema_id
+        ? await this.get(`schemas/${this.schema_id}`, {})
+        : await this.get("schema", {});
         this.schema = new Schema(this, res.data);
     }
 
@@ -53,6 +62,13 @@ export class Api {
     }
 
     query(resource: ResourceID) {
+        if (isString(resource) && this.schema_id && this.schema) {
+            let res = this.schema.resource(resource)
+            if (!res) {
+                throw new Error(`Cannot find resource with name ${resource}`)
+            }
+            resource = res.id
+        }
         return new Query(this, {
             type: 'root',
             resource,

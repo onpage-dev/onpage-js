@@ -10,7 +10,7 @@ let api: Api = null
 
 describe("SETUP", async () => {
   it("Schema request", async () => {
-    api = new Api(process.env.COMPANY, process.env.TOKEN);
+    api = new Api(process.env.COMPANY, process.env.TOKEN, process.env.SCHEMA_ID ? Number(process.env.SCHEMA_ID) : undefined);
     await api.loadSchema()
     expect(api.getRequestCount()).to.equal(1);
   });

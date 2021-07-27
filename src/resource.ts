@@ -3,13 +3,13 @@ import {Field} from './field';
 export type ResourceID = string | number
 export class Resource {
 
-    private id: ResourceID;
+    public id: ResourceID;
+    public name: string;
     private label: string;
     public fields: Field[] = [];
     private id_to_field: Map<number, Field> = new Map();
     private name_to_field: Map<string, Field> = new Map();
     private api: Api;
-    public name: string;
 
     constructor(api: Api, json: any) {
         this.api = api;
