@@ -53,9 +53,7 @@ export class Thing {
       throw new Error("Called rel with empty path");
     }
 
-    let field_name = path.shift()!; // remove first
-    let field = this.resolveField(field_name);
-    let codename = field.identifier();
+    let codename = path.shift()!; // remove first
     if (!this.relations.has(codename)) {
       return [];
     }
@@ -78,14 +76,13 @@ export class Thing {
       throw new Error("Called rel with empty path");
     }
 
-    let field_name = path.shift()!; // remove first
-    let field = this.resolveField(field_name);
-    let codename = field.identifier();
+    let codename = path.shift()!; // remove first
     if (!this.relations.has(codename)) {
       let plus = [];
       if (path.length) {
         plus.push(path.join("."));
       }
+      let field = this.resolveField(codename);
       await this.loadRelation(field, plus);
     }
     let rel = this.relations.get(codename)!;
