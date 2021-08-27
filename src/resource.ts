@@ -4,9 +4,13 @@ export type ResourceID = string | number
 export class Resource {
 
     public id: ResourceID;
-    public name: string;
-    private label: string;
+    public label: string;
     public fields: Field[] = [];
+    public name: string;
+    public type: string;
+    public is_multiple: boolean;
+    public is_translatable: boolean;
+
     private id_to_field: Map<number, Field> = new Map();
     private name_to_field: Map<string, Field> = new Map();
     private api: Api;
@@ -16,6 +20,9 @@ export class Resource {
         this.id = json.id;
         this.name = json.name;
         this.label = json.label;
+        this.type = json.type;
+        this.is_multiple = json.is_multiple;
+        this.is_translatable = json.is_translatable;
         json.fields.forEach((field_json) => {
             let field = new Field(this.api, field_json);
             this.fields.push(field);
