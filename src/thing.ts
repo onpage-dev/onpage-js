@@ -2,7 +2,7 @@ import { Api } from "./api";
 import { OpFile } from "./file";
 import { Resource } from "./resource";
 import { Field } from "./field";
-import { uniqueId, forEach, flatten, uniqBy } from "@s-libs/micro-dash";
+import { uniqueId, forEach, flatten, uniqBy } from "lodash";
 export type ThingID = number;
 export class Thing {
   public json: any = {};

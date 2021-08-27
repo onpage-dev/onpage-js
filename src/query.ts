@@ -3,7 +3,7 @@ import { Api } from "./api";
 // import {FieldLoader} from './fieldloader'
 import { Field, FieldID } from "./field";
 import { ResourceID } from "./resource";
-import { isNumber } from "@s-libs/micro-dash";
+import { isNumber } from "lodash";
 
 export type ReturnType = "list" | "first";
 interface RelatedTo {
