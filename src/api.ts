@@ -2,7 +2,7 @@ import axios, { AxiosInstance } from "axios";
 import {Schema, SchemaID} from './schema';
 import {Query} from './query';
 import { ResourceID } from "./resource";
-import { isNumber, isString } from "@s-libs/micro-dash";
+import { isNumber, isString } from "lodash";
 
 export class Api {
     http: AxiosInstance;
