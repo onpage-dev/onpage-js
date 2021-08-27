@@ -1,6 +1,6 @@
 import { isFinite } from 'lodash'
 import { FieldID } from './field'
-import { SubField } from './fields'
+import { MetaField, SubField } from './fields'
 import { ResourceID } from './resource'
 
 
@@ -60,8 +60,8 @@ interface FilterBase {
 }
 export interface FieldClause extends FilterBase {
   type: 'field'
-  field: FieldID | '_id' | '_created_at' | '_updated_at'
-  subfield?: SubField
+  field: FieldID | MetaField
+  subfield?: string
   lang?: string
   operator: Operator
   value: any

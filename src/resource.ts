@@ -3,19 +3,26 @@ import {Field} from './field';
 export type ResourceID = string | number
 export class Resource {
 
-    private id: ResourceID;
-    private label: string;
+    public id: ResourceID;
+    public label: string;
     public fields: Field[] = [];
+    public name: string;
+    public type: string;
+    public is_multiple: boolean;
+    public is_translatable: boolean;
+
     private id_to_field: Map<number, Field> = new Map();
     private name_to_field: Map<string, Field> = new Map();
     private api: Api;
-    public name: string;
 
     constructor(api: Api, json: any) {
         this.api = api;
         this.id = json.id;
         this.name = json.name;
         this.label = json.label;
+        this.type = json.type;
+        this.is_multiple = json.is_multiple;
+        this.is_translatable = json.is_translatable;
         json.fields.forEach((field_json) => {
             let field = new Field(this.api, field_json);
             this.fields.push(field);

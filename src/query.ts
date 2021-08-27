@@ -2,8 +2,10 @@ import { Thing, ThingID } from "./thing";
 import { Api } from "./api";
 // import {FieldLoader} from './fieldloader'
 import { Field, FieldID } from "./field";
-import { ResourceID } from "./resource";
+import { Resource, ResourceID } from "./resource";
 import { isNumber } from "lodash";
+import { FieldClause, FilterClause, GroupClause, RelationOperator } from "./filters";
+import { MetaField, META_FIELDS, SubField } from "./fields";
 
 export type ReturnType = "list" | "first";
 interface RelatedTo {
@@ -13,18 +15,96 @@ interface RelatedTo {
 
 export type QueryType =
   | {
-      type: "root";
-      resource: ResourceID;
-      related_to?: RelatedTo;
-    }
+    type: "root";
+    resource: ResourceID;
+    related_to?: RelatedTo;
+  }
   | {
-      type: "relation";
-      field: FieldID;
-      as: string;
-    };
-export class Query {
-  private api: Api;
-  private filters: any[] = [];
+    type: "relation";
+    field: FieldID;
+    resource: ResourceID;
+    as: string;
+  } | {
+    type: "filter";
+    resource: ResourceID;
+  };
+
+
+export class FilterHelper {
+  protected api: Api;
+  protected filters: FilterClause[] = [];
+  protected resource: Resource
+
+  constructor(api: Api, resource: Resource) {
+    this.api = api;
+    this.resource = resource
+  }
+
+  where(path: FieldID | MetaField, operator: any, value?: any) {
+    if (value === undefined) {
+      value = operator;
+      operator = "=";
+    }
+    let parts = String(path).split('.')
+    let field: FieldID | MetaField = parts[0]
+    let lang = parts[1] ?? this.api.schema.langs[0]
+    parts = field.split(':')
+    field = parts[0]
+    const subfield = parts[1] ?? undefined
+
+
+    if (!META_FIELDS.find(x => x == field)) {
+      field = this.field(field).id
+    }
+
+    let clause: FieldClause = {
+      type: 'field',
+      resource_id: this.resource.id,
+      field,
+      subfield,
+      operator,
+      value,
+      lang
+    }
+    return this.filter(clause)
+  }
+
+  whereHas(field: string, subquery?: (q: FilterHelper) => void, operator: RelationOperator = 'count_>', value: number = 0) {
+    let fields = field.split('.')
+    field = fields.shift()
+
+    let f = this.field(field)
+    if (f.type != 'relation') {
+      throw new Error(`Cannot use whereHas on field ${f.name} with type ${f.type}`)
+    }
+
+    let query = new FilterHelper(this.api,
+      f.relatedResource(),
+    )
+    let clause: GroupClause = {
+      type: 'group',
+      resource_id: this.resource.id,
+      relation: {
+        field,
+        operator,
+        value,
+      },
+      children: query.filters
+    }
+    if (subquery) subquery(query)
+  }
+
+  filter(clause: FilterClause) {
+    this.filters.push(clause)
+    return this
+  }
+  field(field: FieldID): Field {
+    let f = this.resource.field(field)
+    if (!f) throw new Error(`Cannot find relation ${field} in resource ${this.resource.name}`)
+    return f
+  }
+}
+export class Query extends FilterHelper {
   private fields: FieldID[] = ['+']
   private result_limit?: number;
   private relations: Map<string, Query> = new Map;
@@ -32,7 +112,7 @@ export class Query {
   private type: QueryType;
 
   constructor(api: Api, type: QueryType) {
-    this.api = api;
+    super(api, api.schema.resource(type.resource))
     this.type = type;
   }
 
@@ -97,16 +177,6 @@ export class Query {
     return this;
   }
 
-  where(field: string, op: string | number, value?: string | number) {
-    if (value == null) {
-      value = op;
-      op = "=";
-    }
-    let filter = [field, op, value];
-    this.filters.push(filter);
-    return this;
-  }
-
   with(relations: string | string[]) {
     if (typeof relations === "string") {
       relations = [relations];
@@ -120,12 +190,13 @@ export class Query {
     });
     return this;
   }
-
-  setRelation(field: FieldID, as: string) : Query {
+  setRelation(field: FieldID, as: string): Query {
     if (!this.relations.has(as)) {
+      let f = this.field(field)
       this.relations.set(as, new Query(this.api, {
         type: 'relation',
-        field,
+        resource: f.rel_res_id,
+        field: f.id,
         as,
       }))
     }

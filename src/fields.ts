@@ -1,3 +1,8 @@
+export const META_FIELDS = [
+  '_id', '_created_at', '_updated_at'
+] as const
+export type MetaField = typeof META_FIELDS[number]
+
 const DIM2_FIELDS = [
   {
     type: 'real',

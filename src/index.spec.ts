@@ -46,6 +46,8 @@ describe("FILTERS", () => {
     expect(cap.id).to.equal(236826);
     let cap2 = await api.query('capitoli').where('descrizione', 'like', 'led').first();
     expect(cap2.id).to.equal(236827);
+    // let cap2 = await api.query('capitoli').whereHas('argomenti', q => {}).first();
+    // expect(cap2.id).to.equal(236827);
   });
 });
 
