@@ -1,8 +1,8 @@
-import axios, { AxiosInstance } from "axios";
+import axios, { AxiosInstance, AxiosRequestConfig } from "axios";
 import {Schema, SchemaID} from './schema';
 import {Query} from './query';
 import { ResourceID } from "./resource";
-import { isNumber, isString } from "lodash";
+import { isString } from "lodash";
 
 export class Api {
     http: AxiosInstance;
@@ -43,14 +43,19 @@ export class Api {
         this.req_count = 0
     }
 
-    get(endpoint: string, params: object = []) {
+    get(endpoint: string, params: object = {}, config?: AxiosRequestConfig) {
         params['_method'] = 'get';
-        return this.post(endpoint, params);
+        return this.post(endpoint, params, config);
     }
 
-    post(endpoint: string, data: object) {
+    delete(endpoint: string, params: object = {}, config?: AxiosRequestConfig) {
+        params['_method'] = 'delete';
+        return this.post(endpoint, params, config);
+    }
+
+    post(endpoint: string, data: any, config?: AxiosRequestConfig) {
         this.req_count++;
-        return this.http.post(endpoint, data)
+        return this.http.post(endpoint, data, config)
     }
 
     storageLink(token: string, name: string = null) {
