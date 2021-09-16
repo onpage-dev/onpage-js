@@ -3,11 +3,11 @@ import { Api } from "./api";
 // import {FieldLoader} from './fieldloader'
 import { Field, FieldID } from "./field";
 import { Resource, ResourceID } from "./resource";
-import { isNumber } from "lodash";
+import { clone, isNumber, pick } from "lodash";
 import { FieldClause, FilterClause, GroupClause, RelationOperator } from "./filters";
 import { MetaField, META_FIELDS, SubField } from "./fields";
 
-export type ReturnType = "list" | "first";
+export type ReturnType = "list" | "first" | "paginate";
 interface RelatedTo {
   thing_id: ThingID;
   field_id: FieldID;
@@ -116,6 +116,13 @@ export class Query extends FilterHelper {
     this.type = type;
   }
 
+  setFields(fields: FieldID[]) {
+    this.fields = clone(fields)
+  }
+  addField(field: FieldID) {
+    this.fields.push(field)
+  }
+
   static root(api: Api, resource: ResourceID): Query {
     return new Query(api, {
       type: "root",
@@ -166,10 +173,30 @@ export class Query extends FilterHelper {
     }
   }
 
+  async get(): Promise<Thing[]> {
+    return this.all()
+  }
   async all(): Promise<Thing[]> {
     let data = this.build("list");
     let res = await this.api.get("things", data);
     return Thing.fromResponse(this.api, res.data);
+  }
+  async paginate(page: number = 1, per_page: number = 50): Promise<{pagination: Pagination, things: Thing[]}> {
+    let data = this.build("paginate") as any
+    data.page = page
+    data.per_page = per_page
+    let res = await this.api.get("things", data);
+    return {
+      pagination: pick(res.data, [
+        'current_page',
+        'last_page',
+        'from',
+        'to',
+        'per_page',
+        'total',
+      ]),
+      things: Thing.fromResponse(this.api, res.data.data)
+    };
   }
 
   limit(limit?: number): Query {
@@ -213,4 +240,13 @@ export class Query extends FilterHelper {
     }
     throw new Error("Cannot add related query to relation query");
   }
+}
+
+export interface Pagination {
+  current_page: number
+  last_page: number
+  from: number
+  to: number
+  per_page: number
+  total: number
 }
