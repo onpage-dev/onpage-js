@@ -77,7 +77,7 @@ export class Api {
     return this.http.post(endpoint, data, config);
   }
 
-  storageLink(token: string, name: string = null): string {
+  storageLink(token: string, name?: string): string {
     let url = `${this.api_url}/storage/${token}`;
     if (name) {
       url = `${url}?name=${name}`;

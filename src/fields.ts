@@ -47,7 +47,7 @@ const STRING_FIELDS = null
 const NUMBER_FIELDS = null
 const BOOL_FIELDS = null
 
-export type SubField = Dim2Field | Dim3Field | FileField | null
+export type SubField = Dim2Field | Dim3Field | FileField | undefined
 
 export const SubFields = new Map([
   ['string', STRING_FIELDS],

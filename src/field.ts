@@ -10,10 +10,11 @@ export class Field {
   public is_multiple: boolean
   public rel_res_id: number
   public rel_field_id: number
+  public rel_type: 'src' | 'dst' | 'sync'
+  public opts: {[key: string]: any}
   public type: string
   public name: string
   public resource_id: number
-  public json: any
 
   constructor(public schema: Schema, json: any) {
     this.id = json.id
@@ -24,6 +25,8 @@ export class Field {
     this.type = json.type
     this.rel_res_id = json.rel_res_id
     this.rel_field_id = json.rel_field_id
+    this.rel_type = json.rel_type
+    this.opts = json.opts
     this.resource_id = json.resource_id
   }
 

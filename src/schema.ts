@@ -23,11 +23,11 @@ export class Schema {
     });
   }
 
-  resource(id: any): Resource | null {
+  resource(id: any): Resource | undefined {
     if (typeof id === "number") {
-      return this.id_to_resource.get(id) ?? null;
+      return this.id_to_resource.get(id) ?? undefined;
     } else {
-      return this.name_to_resource.get(id) ?? null;
+      return this.name_to_resource.get(id) ?? undefined;
     }
   }
 

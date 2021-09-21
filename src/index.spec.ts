@@ -30,7 +30,7 @@ describe("GET ONE", () => {
 describe("FILE", () => {
   it("Verify file url", async () => {
     let arg = await schema.query('argomenti').first();
-    let img = arg.val('disegno1');
+    let img = arg.val('disegno1') as OpFile;
     expect(img).to.be.instanceOf(OpFile);
     expect(img.link()).to.equal('https://lithos.onpage.it/api/storage/PMWJiNp8eYn2Hy3TevNU?name=shutterstock_36442114-ok-NEW.jpg')
   });

@@ -136,17 +136,17 @@ export class Query extends FilterHelper {
     });
   }
 
-  async find(id: ThingID): Promise<Thing | null> {
+  async find(id: ThingID): Promise<Thing | undefined> {
     this.where('_id', id)
     let data = this.build("first");
     let res = await this.schema.api.get("things", data);
-    return res ? new Thing(this.schema, res.data) : null;
+    return res ? new Thing(this.schema, res.data) : undefined;
   }
 
-  async first(): Promise<Thing | null> {
+  async first(): Promise<Thing | undefined> {
     let data = this.build("first");
     let res = await this.schema.api.get("things", data);
-    return res ? new Thing(this.schema, res.data) : null;
+    return res ? new Thing(this.schema, res.data) : undefined;
   }
 
   build(ret?: ReturnType): object {

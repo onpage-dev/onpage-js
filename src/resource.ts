@@ -10,6 +10,7 @@ export class Resource {
   public type: string;
   public is_multiple: boolean;
   public is_translatable: boolean;
+  public opts: {[key: string]: any}
 
   private id_to_field: Map<number, Field> = new Map();
   private name_to_field: Map<string, Field> = new Map();
@@ -19,6 +20,7 @@ export class Resource {
     this.name = json.name;
     this.label = json.label;
     this.type = json.type;
+    this.opts = json.opts;
     this.is_multiple = json.is_multiple;
     this.is_translatable = json.is_translatable;
     json.fields.forEach((field_json) => {
@@ -29,11 +31,11 @@ export class Resource {
     });
   }
 
-  field(id: any): Field | null {
+  field(id: any): Field | undefined {
     if (typeof id === "number") {
-      return this.id_to_field.get(id) ?? null;
+      return this.id_to_field.get(id) ?? undefined;
     } else {
-      return this.name_to_field.get(id) ?? null;
+      return this.name_to_field.get(id) ?? undefined;
     }
   }
 
