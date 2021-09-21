@@ -1,6 +1,8 @@
+import { Schema } from '.'
 import { Api } from './api'
 import {Resource} from './resource'
 export type FieldID = number | string
+export type FieldFolderID = number
 export class Field {
   public id: FieldID
   public label: string
@@ -9,13 +11,11 @@ export class Field {
   public rel_res_id: number
   public rel_field_id: number
   public type: string
-  private api: Api
   public name: string
   public resource_id: number
   public json: any
 
-  constructor(api: Api, json: any) {
-    this.api = api
+  constructor(public schema: Schema, json: any) {
     this.id = json.id
     this.is_multiple = json.is_multiple
     this.is_translatable = json.is_translatable
@@ -31,7 +31,7 @@ export class Field {
     let identifier = this.name
     if (this.is_translatable) {
       if (!lang) {
-        lang = this.api.schema.langs[0]
+        lang = this.schema.langs[0]
       }
       identifier = `${identifier}_${lang}`
     }
@@ -39,13 +39,13 @@ export class Field {
   }
 
   resource(): Resource {
-    return this.api.schema.resource(this.resource_id)!
+    return this.schema.resource(this.resource_id)!
   }
   relatedResource(): Resource {
     if (!this.rel_res_id) {
       throw new Error(`Field ${this.name} has no related resource`)
     }
-    return this.api.schema.resource(this.rel_res_id)!
+    return this.schema.resource(this.rel_res_id)!
   }
   relatedField(): Field {
     let rel_res = this.relatedResource()

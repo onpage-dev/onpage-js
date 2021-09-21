@@ -3,10 +3,8 @@ import { Api } from './api'
 export class OpFile {
     public name: string;
     public token: string;
-    private api: Api
 
-    constructor(api: Api, file: any) {
-        this.api = api;
+    constructor(public api: Api, file: any) {
         this.name = file.name;
         this.token = file.token;
     }

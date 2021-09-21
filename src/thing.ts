@@ -3,23 +3,35 @@ import { OpFile } from "./file";
 import { Resource } from "./resource";
 import { Field } from "./field";
 import { uniqueId, forEach, flatten, uniqBy } from "lodash";
+import { FieldFolderID, FieldID, ResourceID, Schema } from ".";
 export type ThingID = number;
+export type TableConfigID = number;
 export class Thing {
   public json: any = {};
   public id: ThingID;
-  private api: Api;
+  public resource_id: ResourceID;
+  public label?: string;
+  public labels?: {[key: string]: string};
+  public parent_count?: number;
+  public default_folder_id?: FieldFolderID;
+  public table_configs?: {[key: number]: TableConfigID};
   private relations: Map<string, Thing[]> = new Map();
 
-  constructor(api: Api, json: any) {
-    this.api = api;
+  constructor(public schema: Schema, json: any) {
     this.json = json;
     this.id = json.id;
+    this.resource_id = json.resource_id;
+    this.label = json.label;
+    this.labels = json.labels;
+    this.parent_count = json.parent_count;
+    this.default_folder_id = json.default_folder_id;
+    this.table_configs = json.table_configs;
     forEach(json.relations, (related_things, field_name) => {
-      this.setRelation(String(field_name), Thing.fromResponse(api, related_things));
+      this.setRelation(String(field_name), Thing.fromResponse(this.schema, related_things));
     });
   }
 
-  val(field_name: string, lang?: string) {
+  val(field_name: FieldID, lang?: string) {
     let field = this.resolveField(field_name);
     let codename = field.identifier(lang);
     let def = field.is_multiple ? [] : null;
@@ -28,13 +40,13 @@ export class Thing {
     if (!field.is_multiple) values = [values];
     if (["file", "image"].includes(field.type)) {
       values = values.map((v: any) => {
-        return new OpFile(this.api, v);
+        return new OpFile(this.schema.api, v);
       });
     }
     return field.is_multiple ? values : values[0];
   }
 
-  resolveField(field_name: string): Field {
+  resolveField(field_name: FieldID): Field {
     let res = this.resource();
     let field = res.field(field_name);
     if (!field) throw new Error(`Cannot find field ${field_name}`);
@@ -42,7 +54,7 @@ export class Thing {
   }
 
   resource(): Resource {
-    return this.api.schema.resource(this.json.resource_id)!;
+    return this.schema.resource(this.json.resource_id)!;
   }
 
   relSync(path: string | string[]): Thing[] {
@@ -103,12 +115,12 @@ export class Thing {
     this.relations.set(alias, things);
   }
 
-  static fromResponse(api: Api, json_things: object[]): Thing[] {
-    return json_things.map((json) => new Thing(api, json));
+  static fromResponse(schema: Schema, json_things: object[]): Thing[] {
+    return json_things.map((json) => new Thing(schema, json));
   }
 
   async loadRelation(field: Field, plus: string[] = []) {
-    let result = await this.api.query(field.relatedResource().name).relatedTo(field, this.id).with(plus).all();
+    let result = await this.schema.query(field.relatedResource().name).relatedTo(field, this.id).with(plus).all();
     this.setRelation(field.identifier(), result);
   }
 }

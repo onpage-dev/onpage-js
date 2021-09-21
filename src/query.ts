@@ -3,9 +3,10 @@ import { Api } from "./api";
 // import {FieldLoader} from './fieldloader'
 import { Field, FieldID } from "./field";
 import { Resource, ResourceID } from "./resource";
-import { clone, isNumber, pick } from "lodash";
+import { clone, isNumber, isObject, pick } from "lodash";
 import { FieldClause, FilterClause, GroupClause, RelationOperator } from "./filters";
 import { MetaField, META_FIELDS, SubField } from "./fields";
+import { Schema } from ".";
 
 export type ReturnType = "list" | "first" | "paginate";
 interface RelatedTo {
@@ -18,6 +19,8 @@ export type QueryType =
     type: "root";
     resource: ResourceID;
     related_to?: RelatedTo;
+    options: QueryOptions
+    langs?: string[]
   }
   | {
     type: "relation";
@@ -31,12 +34,10 @@ export type QueryType =
 
 
 export class FilterHelper {
-  protected api: Api;
   protected filters: FilterClause[] = [];
   protected resource: Resource
 
-  constructor(api: Api, resource: Resource) {
-    this.api = api;
+  constructor(protected schema: Schema, resource: Resource) {
     this.resource = resource
   }
 
@@ -47,7 +48,7 @@ export class FilterHelper {
     }
     let parts = String(path).split('.')
     let field: FieldID | MetaField = parts[0]
-    let lang = parts[1] ?? this.api.schema.langs[0]
+    let lang = parts[1] ?? this.schema.langs[0]
     parts = field.split(':')
     field = parts[0]
     const subfield = parts[1] ?? undefined
@@ -78,7 +79,7 @@ export class FilterHelper {
       throw new Error(`Cannot use whereHas on field ${f.name} with type ${f.type}`)
     }
 
-    let query = new FilterHelper(this.api,
+    let query = new FilterHelper(this.schema,
       f.relatedResource(),
     )
     let clause: GroupClause = {
@@ -111,8 +112,8 @@ export class Query extends FilterHelper {
 
   private type: QueryType;
 
-  constructor(api: Api, type: QueryType) {
-    super(api, api.schema.resource(type.resource))
+  constructor(schema: Schema, type: QueryType) {
+    super(schema, schema.resource(type.resource))
     this.type = type;
   }
 
@@ -123,17 +124,29 @@ export class Query extends FilterHelper {
     this.fields.push(field)
   }
 
-  static root(api: Api, resource: ResourceID): Query {
-    return new Query(api, {
+  static root(schema: Schema, resource: ResourceID): Query {
+    return new Query(schema, {
       type: "root",
       resource,
+      options: {
+        no_labels: true,
+        hyper_compact: true,
+        use_field_names: true,
+      },
     });
+  }
+
+  async find(id: ThingID): Promise<Thing | null> {
+    this.where('_id', id)
+    let data = this.build("first");
+    let res = await this.schema.api.get("things", data);
+    return res ? new Thing(this.schema, res.data) : null;
   }
 
   async first(): Promise<Thing | null> {
     let data = this.build("first");
-    let res = await this.api.get("things", data);
-    return res ? new Thing(this.api, res.data) : null;
+    let res = await this.schema.api.get("things", data);
+    return res ? new Thing(this.schema, res.data) : null;
   }
 
   build(ret?: ReturnType): object {
@@ -147,11 +160,7 @@ export class Query extends FilterHelper {
       limit: this.result_limit,
     };
     if (this.type.type == "root") {
-      data.options = {
-        no_labels: true,
-        hyper_compact: true,
-        use_field_names: true,
-      };
+      data.options = this.type.options
       data.return = ret!
 
       // Add resource or resource_id
@@ -178,14 +187,14 @@ export class Query extends FilterHelper {
   }
   async all(): Promise<Thing[]> {
     let data = this.build("list");
-    let res = await this.api.get("things", data);
-    return Thing.fromResponse(this.api, res.data);
+    let res = await this.schema.api.get("things", data);
+    return Thing.fromResponse(this.schema, res.data);
   }
   async paginate(page: number = 1, per_page: number = 50): Promise<{pagination: Pagination, things: Thing[]}> {
     let data = this.build("paginate") as any
     data.page = page
     data.per_page = per_page
-    let res = await this.api.get("things", data);
+    let res = await this.schema.api.get("things", data);
     return {
       pagination: pick(res.data, [
         'current_page',
@@ -195,7 +204,7 @@ export class Query extends FilterHelper {
         'per_page',
         'total',
       ]),
-      things: Thing.fromResponse(this.api, res.data.data)
+      things: Thing.fromResponse(this.schema, res.data.data)
     };
   }
 
@@ -220,7 +229,7 @@ export class Query extends FilterHelper {
   setRelation(field: FieldID, as: string): Query {
     if (!this.relations.has(as)) {
       let f = this.field(field)
-      this.relations.set(as, new Query(this.api, {
+      this.relations.set(as, new Query(this.schema, {
         type: 'relation',
         resource: f.rel_res_id,
         field: f.id,
@@ -230,15 +239,33 @@ export class Query extends FilterHelper {
     return this.relations.get(as)!
   }
 
-  relatedTo(field: Field, thing_id: number): Query {
+  relatedTo(field: Field | FieldID, thing_id: number): Query {
+    if (isObject(field)) field = field.id
     if (this.type.type == 'root') {
       this.type.related_to = {
-        field_id: field.id,
+        field_id: field,
         thing_id: thing_id,
       };
       return this;
     }
     throw new Error("Cannot add related query to relation query");
+  }
+
+  setOptions(options: QueryOptions) : Query {
+    if (this.type.type != 'root') {
+      throw new Error('Cannot set query options on query type '+ this.type.type)
+    }
+    for (var i in options) {
+      this.type.options[i] = options[i]
+    }
+    return this
+  }
+  setLangs(langs: string[]) : Query {
+    if (this.type.type != 'root') {
+      throw new Error('Cannot set query langs on query type '+ this.type.type)
+    }
+    this.type.langs = langs
+    return this
   }
 }
 
@@ -249,4 +276,12 @@ export interface Pagination {
   to: number
   per_page: number
   total: number
+}
+export interface QueryOptions {
+  with_parent_badge?: boolean,
+  with_tags?: boolean,
+  with_table_configs?: boolean,
+  no_labels?: boolean,
+  hyper_compact?: true,
+  use_field_names?: true,
 }
