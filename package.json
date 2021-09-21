@@ -1,6 +1,6 @@
 {
   "name": "onpage-js",
-  "version": "1.0.22",
+  "version": "1.0.23",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "repository": "git@github.com:onpage-dev/onpage-js.git",
