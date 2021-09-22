@@ -161,6 +161,7 @@ export class Query extends FilterHelper {
     };
     if (this.type.type == "root") {
       data.options = this.type.options
+      data.langs = this.type.langs ?? this.schema.langs
       data.return = ret!
 
       // Add resource or resource_id

@@ -6,6 +6,8 @@ import { uniqueId, forEach, flatten, uniqBy } from "lodash";
 import { FieldFolderID, FieldID, ResourceID, Schema } from ".";
 export type ThingID = number;
 export type TableConfigID = number;
+
+type Value  = boolean | string | number | [number, number] | [number, number, number] | OpFile
 export class Thing {
   public json: any = {};
   public id: ThingID;
@@ -31,12 +33,12 @@ export class Thing {
     });
   }
 
-  val(field_name: FieldID, lang?: string) {
+  val(field_name: FieldID, lang?: string) : null | Value | Value[] {
     let field = this.resolveField(field_name);
     let codename = field.identifier(lang);
     let def = field.is_multiple ? [] : null;
     let values = this.json.fields[codename] ?? def;
-    if (values == null) return def;
+    if (values === undefined || values === null) return def;
     if (!field.is_multiple) values = [values];
     if (["file", "image"].includes(field.type)) {
       values = values.map((v: any) => {
