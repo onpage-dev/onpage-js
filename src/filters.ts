@@ -3,33 +3,48 @@ import { FieldID } from './field'
 import { MetaField, SubField } from './fields'
 import { ResourceID } from './resource'
 
-
-export const NUMBER_OPERATORS = [
-  '=', '<>', '>', '<', '>=', '<='
-] as const
-export type NumberOperator = (typeof NUMBER_OPERATORS)[number]
+export const NUMBER_OPERATORS = ['=', '<>', '>', '<', '>=', '<='] as const
+export type NumberOperator = typeof NUMBER_OPERATORS[number]
 
 export const STRING_OPERATORS = [
-  'like', 'not_like', '=', '<>', 'empty', 'not_empty'
+  'like',
+  'not_like',
+  '=',
+  '<>',
+  'empty',
+  'not_empty',
 ] as const
-export type StringOperator = (typeof STRING_OPERATORS)[number]
+export type StringOperator = typeof STRING_OPERATORS[number]
 
 export const RELATION_OPERATORS = [
-  'count_>=', 'count_=', 'count_<', 'count_>', 'count_<=', 'count_<>'
+  'count_>=',
+  'count_=',
+  'count_<',
+  'count_>',
+  'count_<=',
+  'count_<>',
 ] as const
-export type RelationOperator = (typeof RELATION_OPERATORS)[number]
+export type RelationOperator = typeof RELATION_OPERATORS[number]
 
 export const DATE_OPERATORS = [
-  'after', 'before', 'precisely', 'not_the', 'from', 'to_the'
+  'after',
+  'before',
+  'precisely',
+  'not_the',
+  'from',
+  'to_the',
 ] as const
-export type DateOperator = (typeof DATE_OPERATORS)[number]
+export type DateOperator = typeof DATE_OPERATORS[number]
 
-export const BOOL_OPERATORS = [
-  'true', 'false'
-] as const
-export type BoolOperator = (typeof BOOL_OPERATORS)[number]
+export const BOOL_OPERATORS = ['true', 'false'] as const
+export type BoolOperator = typeof BOOL_OPERATORS[number]
 
-export type Operator = NumberOperator | StringOperator | RelationOperator | DateOperator | BoolOperator
+export type Operator =
+  | NumberOperator
+  | StringOperator
+  | RelationOperator
+  | DateOperator
+  | BoolOperator
 
 export type FilterID = number
 
@@ -40,10 +55,12 @@ export interface SavedFilter {
   label: string
 }
 
-export interface LoadedFilterLabel {
+export interface FilterLabel {
   id?: number
   label: string
   resource_id: ResourceID
+}
+export interface LoadedFilterLabel extends FilterLabel {
   clause: GroupClause
 }
 
@@ -52,7 +69,6 @@ export interface LoadedView {
   label: string
   filters: GroupClause[]
 }
-
 
 interface FilterBase {
   resource_id: ResourceID
@@ -82,22 +98,28 @@ export interface ReferenceClause extends FilterBase {
 }
 export type FilterClause = FieldClause | GroupClause | ReferenceClause
 
-export function createFilterGroup(resource_id: ResourceID, number_children: Number = 0): GroupClause {
+export function createFilterGroup(
+  resource_id: ResourceID,
+  number_children: Number = 0
+): GroupClause {
   let group = {
     resource_id,
     type: 'group',
-    children: []
+    children: [],
   } as GroupClause
 
   for (let i = 0; i < number_children; i++) {
     group.children.push({
-      resource_id
+      resource_id,
     } as FilterClause)
   }
   return group
 }
 
-export function createFilterRelation(resource_id: ResourceID, field: FieldID): GroupClause {
+export function createFilterRelation(
+  resource_id: ResourceID,
+  field: FieldID
+): GroupClause {
   return {
     resource_id,
     type: 'group',
@@ -106,7 +128,7 @@ export function createFilterRelation(resource_id: ResourceID, field: FieldID): G
       operator: 'count_>=',
       value: 1,
     },
-    children: []
+    children: [],
   }
 }
 
@@ -116,17 +138,29 @@ export function valueValid(value: any): boolean {
 
 export function isClauseValid(clause: FilterClause): boolean {
   if (clause.type == 'field') {
-    return Boolean(clause.field) && Boolean(clause.operator) && Boolean(Boolean(['empty', 'not_empty', 'true', 'false'].includes(clause.operator)) || valueValid(clause.value))
+    return (
+      Boolean(clause.field) &&
+      Boolean(clause.operator) &&
+      Boolean(
+        Boolean(
+          ['empty', 'not_empty', 'true', 'false'].includes(clause.operator)
+        ) || valueValid(clause.value)
+      )
+    )
   }
   if (clause.type == 'group') {
     if (clause.relation) {
-      if (!clause.relation.field || !clause.relation.operator || !isFinite(clause.relation.value)) {
+      if (
+        !clause.relation.field ||
+        !clause.relation.operator ||
+        !isFinite(clause.relation.value)
+      ) {
         return false
       }
     } else {
       // if (!clause.children.length) return false
     }
-    return !clause.children.find(child => !isClauseValid(child))
+    return !clause.children.find((child) => !isClauseValid(child))
   }
   if (clause.type == 'reference') {
     return isFinite(clause.filter_id)
