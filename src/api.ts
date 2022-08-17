@@ -1,87 +1,95 @@
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from "axios";
-import { Schema, SchemaID } from "./schema";
-
-export class Api {
-  http: AxiosInstance;
-  req_count: number = 0;
-  api_url: string;
+import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
+import { Backend } from './backend'
+import { Schema, SchemaJson } from './schema'
+import { deepFreeze } from './utils'
+export class Api extends Backend {
+  http: AxiosInstance
 
   constructor(
-    company: string,
-    token: string,
+    private company: string,
+    private token: string,
     private is_user_mode: boolean = false
   ) {
-    if (company.match(/^https?:/)) {
-      this.api_url = company.replace(/\/$/, ""); // remove trailing /
+    super()
+    this.setupAxios()
+  }
+
+  clone() {
+    return new Api(this.company, this.token, this.is_user_mode)
+  }
+
+  setupAxios() {
+    if (this.company.match(/^https?:/)) {
+      this.api_url = this.company.replace(/\/$/, '') // remove trailing /
     } else {
-      this.api_url = `https://${company}.onpage.it/api`;
+      this.api_url = `https://${this.company}.onpage.it/api`
     }
     this.http = axios.create({
-      baseURL: is_user_mode ? this.api_url : `${this.api_url}/view/${token}`,
+      baseURL: this.is_user_mode
+        ? this.api_url
+        : `${this.api_url}/view/${this.token}`,
       timeout: 60000,
       headers: {
-        Authorization: token,
+        Authorization: this.token,
       },
-    });
+    })
+  }
+
+  setupForProject(schema: Schema) {
+    this.http.defaults.headers['x-schema'] = schema.id
   }
 
   async loadSchema(schema_id?: number | string): Promise<Schema> {
+    let schema_json = await this.schemaRequest(schema_id)
+    const api = this.clone()
+    api.http.defaults.headers['x-schema'] = schema_json.id
+    return new Schema(api, schema_json)
+  }
+  async schemaRequest(schema_id?: number | string): Promise<SchemaJson> {
     if (this.is_user_mode && !schema_id) {
-      throw new Error(
-        "loadSchema needs a schema_id when APIs are in user mode"
-      );
+      throw new Error('loadSchema needs a schema_id when APIs are in user mode')
     }
     if (!this.is_user_mode && schema_id) {
-      throw new Error(
-        "loadSchema does not want a schema_id when APIs are not in user mode"
-      );
+      schema_id = undefined
     }
-    let res = schema_id
-      ? await this.get(`schemas/${schema_id}`, {})
-      : await this.get("schema", {});
-    return new Schema(this, res.data);
+    return schema_id
+      ? (await this.get(`schemas/${schema_id}`, {})).data
+      : (await this.get('schema', {})).data
   }
-
-  getRequestCount() {
-    return this.req_count;
-  }
-
-  resetRequestCount() {
-    this.req_count = 0;
-  }
-
-  get(
+  get<T = any>(
     endpoint: string,
     params: object = {},
     config?: AxiosRequestConfig
-  ): Promise<AxiosResponse<any>> {
-    params["_method"] = "get";
-    return this.post(endpoint, params, config);
+  ): Promise<AxiosResponse<T>> {
+    params['_method'] = 'get'
+    return this.post(endpoint, params, config)
   }
 
-  delete(
+  delete<T = any>(
     endpoint: string,
     params: object = {},
     config?: AxiosRequestConfig
-  ): Promise<AxiosResponse<any>> {
-    params["_method"] = "delete";
-    return this.post(endpoint, params, config);
+  ): Promise<AxiosResponse<T>> {
+    params['_method'] = 'delete'
+    return this.post(endpoint, params, config)
   }
 
-  post(
+  post<T = any>(
     endpoint: string,
     data: any,
     config?: AxiosRequestConfig
-  ): Promise<AxiosResponse<any>> {
-    this.req_count++;
-    return this.http.post(endpoint, data, config);
+  ): Promise<AxiosResponse<T>> {
+    this.req_count++
+    return this.http.post(endpoint, data, config)
   }
 
-  storageLink(token: string, name?: string): string {
-    let url = `${this.api_url}/storage/${token}`;
-    if (name) {
-      url = `${url}?name=${name}`;
-    }
-    return url;
+  request<T>(
+    method: 'get' | 'post' | 'delete',
+    endpoint: string,
+    data?: any,
+    config?: AxiosRequestConfig
+  ): Promise<AxiosResponse<T>> {
+    this.req_count++
+    return deepFreeze(this.http[method](endpoint, data, config))
   }
 }

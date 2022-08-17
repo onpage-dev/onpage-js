@@ -1,21 +1,138 @@
-import { FieldID, FilterLabel, Query, Schema } from '.'
-import { Api } from './api'
-import { Field } from './field'
-export type ResourceID = string | number
+import { clone, cloneDeep, isNumber, uniqBy } from 'lodash'
+import { Field, FieldFolder, FieldID, FieldIdentifier } from './field'
+import { FilterLabel } from './filters'
+import { LegacyTemplate } from './legacy-template'
+import { FieldCollection } from './misc'
+import { FieldQuery, Query, QueryFilter, SimpleFieldClause } from './query'
+import { PivotViewJson } from './resource-viewer-pivot'
+import { Robot } from './robot'
+import { Schema, ResourceJson } from './schema'
+import { Thing, ThingID } from './thing'
+export type ResourceID = number
+export type ResourceName = string
+export type ResourceIdentifier = ResourceID | ResourceName
 
+export type ResourceSlotID = number
 export interface ResourceSlot {
-  id: number
+  id: ResourceSlotID
   path: FieldID[]
-  type: string
 }
-export interface ResourceSlots {
-  title: ResourceSlot
-  subtitle: ResourceSlot
-  info: ResourceSlot
-  cover: ResourceSlot
+export interface ResourceSlotsResponse {
+  title?: ResourceSlot[]
+  subtitle?: ResourceSlot[]
+  info?: ResourceSlot[]
+  filters?: ResourceSlot[]
+  cover?: ResourceSlot[]
 }
-export class Resource {
-  public fields: Field[] = []
+export class SlotManager {
+  constructor(private resource: Resource) {}
+
+  get title_slots(): ResourceSlot[] {
+    if (this.resource.slots_raw?.title) {
+      return this.resource.slots_raw?.title
+    }
+    const field = this.resource.fields.find(x => x.is_textual)
+    return field ? [{ path: [field.id], id: undefined! }] : []
+  }
+  get subtitle_slots(): ResourceSlot[] {
+    return this.resource.slots_raw?.subtitle ?? []
+  }
+  get info_slots(): ResourceSlot[] {
+    return this.resource.slots_raw?.info ?? []
+  }
+  get filter_slots(): ResourceSlot[] {
+    return this.resource.slots_raw?.filters ?? []
+  }
+  get cover_slots(): ResourceSlot[] {
+    if (this.resource.slots_raw?.cover) {
+      return this.resource.slots_raw?.cover
+    }
+    const field = this.resource.fields.find(x => x.type == 'image')
+    return field ? [{ path: [field.id], id: undefined! }] : []
+  }
+
+  queryFields(): FieldQuery[] {
+    let ret: FieldQuery[] = []
+    /* ret = [
+      'nome',
+      'codice',
+      {
+        field: 'prodotti',
+        fields: [
+          'sku'
+        ]
+      }
+    ] */
+    this.title_slots.forEach(slot =>
+      Query.addPathToFieldQueries(ret, cloneDeep(slot.path))
+    )
+    this.subtitle_slots.forEach(slot =>
+      Query.addPathToFieldQueries(ret, cloneDeep(slot.path))
+    )
+    this.info_slots.forEach(slot =>
+      Query.addPathToFieldQueries(ret, cloneDeep(slot.path))
+    )
+    this.cover_slots.forEach(slot =>
+      Query.addPathToFieldQueries(ret, cloneDeep(slot.path))
+    )
+    return ret
+  }
+
+  queryFilters(query: string): QueryFilter {
+    const clauses: SimpleFieldClause[] = []
+
+    this.title_slots.forEach(slot =>
+      clauses.push([slot.path.join('.'), 'like', query])
+    )
+    this.subtitle_slots.forEach(slot =>
+      clauses.push([slot.path.join('.'), 'like', query])
+    )
+    this.info_slots.forEach(slot =>
+      clauses.push([slot.path.join('.'), 'like', query])
+    )
+    let filter: QueryFilter = ['_or']
+    filter = filter.concat(uniqBy(clauses, f => f[0]))
+    return filter
+  }
+}
+
+export class Resource<Structure extends FieldCollection = undefined> {
+  public readonly fields: Field[] = []
+  private readonly id_to_field: Map<number, Field> = new Map()
+  private readonly name_to_field: Map<string, Field> = new Map()
+  private json: ResourceJson
+  public slots: SlotManager
+
+  constructor(private _schema: Schema, json: ResourceJson) {
+    this.setJson(json)
+  }
+
+  public setJson(json: ResourceJson) {
+    this.json = json
+    this.fields.splice(0)
+    const field_to_remove = clone(this.id_to_field)
+    json.fields.forEach(field_json => {
+      let field = this.id_to_field.get(field_json.id)
+      if (field) {
+        field.setJson(field_json)
+      } else {
+        field = new Field(this._schema, field_json)
+        this.id_to_field.set(field.id, field)
+        this.name_to_field.set(field.name, field)
+      }
+      this.fields.push(field)
+      field_to_remove.delete(field.id)
+    })
+    field_to_remove.forEach(field => {
+      this.id_to_field.delete(field.id)
+      this.name_to_field.delete(field.name)
+      let i = this.fields.findIndex(f => f.id == field.id)
+      if (i >= 0) this.fields.splice(i, 1)
+    })
+    if (!this.slots) {
+      this.slots = new SlotManager(this)
+    }
+  }
 
   get id(): ResourceID {
     return this.json.id
@@ -33,62 +150,112 @@ export class Resource {
       this.labels[this._schema.default_lang]
     )
   }
-  get name(): string {
+  get name(): ResourceName {
     return this.json.name
   }
-  get slots(): ResourceSlots {
+  get slots_raw() {
     return this.json.slots
   }
-  get filters(): FilterLabel {
+  get filters(): FilterLabel[] {
     return this.json.filters
   }
-  get folders(): any[] {
-    return this.json.folders
+  get domain(): String | undefined {
+    return this.json.domain ?? undefined
   }
-  get robots(): any[] {
-    return this.json.robots
+  get folders(): FieldFolder[] {
+    return this.json.folders ?? []
   }
-  get templates(): any[] {
-    return this.json.templates
+  get robots(): Robot[] {
+    return this.json.robots ?? []
+  }
+  get templates(): LegacyTemplate[] {
+    return (this.json.templates??[]).filter((x: LegacyTemplate) => !x.archived_at)
+  }
+  get archived_templates(): LegacyTemplate[] {
+    return (this.json.templates??[]).filter((x: LegacyTemplate) => x.archived_at)
   }
   get type(): string {
     return this.json.type
   }
-  get is_multiple(): boolean {
-    return this.json.is_multiple
-  }
-  get is_translatable(): boolean {
-    return this.json.is_translatable
-  }
   get opts(): { [key: string]: any } {
     return this.json.opts
   }
-
-  private id_to_field: Map<number, Field> = new Map()
-  private name_to_field: Map<string, Field> = new Map()
-
-  constructor(private _schema: Schema, private json: any) {
-    json.fields.forEach((field_json) => {
-      let field = new Field(this._schema, field_json)
-      this.fields.push(field)
-      this.id_to_field.set(field_json.id, field)
-      this.name_to_field.set(field_json.name, field)
-    })
+  get table_configs(): undefined | PivotViewJson[] {
+    return this.json.table_configs
+  }
+  set table_configs(tc: PivotViewJson[]) {
+    this.json.table_configs = tc
   }
 
-  field(id: any): Field | undefined {
+  get is_virtual() {
+    return this.id < 30
+  }
+
+  field(id: FieldIdentifier): Field | undefined {
+    if (typeof id == 'string' && parseInt(id)) {
+      id = parseInt(id)
+    }
     if (typeof id === 'number') {
       return this.id_to_field.get(id) ?? undefined
-    } else {
-      return this.name_to_field.get(id) ?? undefined
     }
+    return this.name_to_field.get(id) ?? undefined
   }
 
-  query(): Query {
-    return Query.root(this._schema, this.id)
+  query(): Query<Structure> {
+    return Query.root(this._schema, this)
   }
 
   schema(): Schema {
     return this._schema
+  }
+
+  getGlobalThing(id: ThingID | undefined) {
+    if (!isNumber(id)) return
+    const ret = this.thing_cache.get(id)
+    if (ret) return ret
+    this.loadGlobalThings([id])
+  }
+  async loadGlobalThings(ids: ThingID[]) {
+    const to_load = ids.filter(
+      id =>
+        !this.hasGlobalThing(id) &&
+        !this.thing_cache_loaders.has(id) &&
+        !this.thing_cache_errors.has(id)
+    )
+    if (to_load.length) {
+      to_load.forEach(id => this.thing_cache_loaders.add(id))
+      try {
+        const things = await this.query()
+          .where('_id', 'in', to_load)
+          .loadSlotFields()
+          .all()
+        to_load.forEach(id => {
+          const thing = things.find(t => t.id == id)
+          if (thing) {
+            this.addGlobalThings([thing])
+          } else {
+            this.thing_cache_errors.add(id)
+          }
+        })
+      } finally {
+        to_load.forEach(id => this.thing_cache_loaders.delete(id))
+      }
+    }
+  }
+
+  private thing_cache: Map<ThingID, Thing> = new Map()
+  private thing_cache_loaders: Set<ThingID> = new Set()
+  private thing_cache_errors: Set<ThingID> = new Set()
+
+  hasGlobalThing(thing: ThingID) {
+    return this.thing_cache.has(thing)
+  }
+  isLoadingGlobalThing(thing: ThingID) {
+    return this.thing_cache_loaders.has(thing)
+  }
+  addGlobalThings(things: Thing[]) {
+    things.forEach(thing => {
+      this.thing_cache.set(thing.id, thing)
+    })
   }
 }

@@ -1,18 +1,32 @@
 import { isFinite } from 'lodash'
-import { FieldID } from './field'
-import { MetaField, SubField } from './fields'
+import { FieldID, FieldIdentifier } from './field'
+import { MetaField } from './fields'
 import { ResourceID } from './resource'
 
-export const NUMBER_OPERATORS = ['=', '<>', '>', '<', '>=', '<='] as const
+export const NUMBER_OPERATORS = [
+  'like',
+  'empty',
+  'not_empty',
+  '=',
+  '<>',
+  '>',
+  '<',
+  '>=',
+  '<=',
+] as const
 export type NumberOperator = typeof NUMBER_OPERATORS[number]
 
+export const STATUS_OPERATORS = ['empty', 'not_empty'] as const
+export type StatusOperators = typeof STATUS_OPERATORS[number]
 export const STRING_OPERATORS = [
   'like',
+  'empty',
+  'not_empty',
+  'not_in',
+  'in',
   'not_like',
   '=',
   '<>',
-  'empty',
-  'not_empty',
 ] as const
 export type StringOperator = typeof STRING_OPERATORS[number]
 
@@ -25,6 +39,14 @@ export const RELATION_OPERATORS = [
   'count_<>',
 ] as const
 export type RelationOperator = typeof RELATION_OPERATORS[number]
+
+export const GENERIC_FIELD_OPERATORS = [
+  'empty',
+  'not_empty',
+  'updated_before',
+  'updated_after',
+] as const
+export type GenericFieldOperator = typeof GENERIC_FIELD_OPERATORS[number]
 
 export const DATE_OPERATORS = [
   'after',
@@ -40,7 +62,9 @@ export const BOOL_OPERATORS = ['true', 'false'] as const
 export type BoolOperator = typeof BOOL_OPERATORS[number]
 
 export type Operator =
+  | GenericFieldOperator
   | NumberOperator
+  | StatusOperators
   | StringOperator
   | RelationOperator
   | DateOperator
@@ -76,7 +100,7 @@ interface FilterBase {
 }
 export interface FieldClause extends FilterBase {
   type: 'field'
-  field: FieldID | MetaField
+  field: FieldIdentifier | MetaField
   subfield?: string
   lang?: string
   operator: Operator
@@ -85,7 +109,7 @@ export interface FieldClause extends FilterBase {
 export interface GroupClause extends FilterBase {
   type: 'group'
   relation?: {
-    field: FieldID
+    field: FieldIdentifier
     operator: RelationOperator
     value: number
   }
@@ -97,7 +121,6 @@ export interface ReferenceClause extends FilterBase {
   filter_id: FilterID
 }
 export type FilterClause = FieldClause | GroupClause | ReferenceClause
-
 export function createFilterGroup(
   resource_id: ResourceID,
   number_children: Number = 0
@@ -160,7 +183,7 @@ export function isClauseValid(clause: FilterClause): boolean {
     } else {
       // if (!clause.children.length) return false
     }
-    return !clause.children.find((child) => !isClauseValid(child))
+    return !clause.children.find(child => !isClauseValid(child))
   }
   if (clause.type == 'reference') {
     return isFinite(clause.filter_id)
