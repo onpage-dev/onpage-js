@@ -14,6 +14,8 @@ yarn add onpage-js
 
 ### Setup
 
+First, you need to generate an __API token__ in On Page, from the "Links" page from the menubar.
+
 ```ts
 import {Api} from 'onpage-js'
 let api = new Api('MY-SUBDOMAIN', api_token)
