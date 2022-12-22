@@ -1,9 +1,9 @@
 import { clone, cloneDeep } from 'lodash'
-import { Schema } from './schema'
+import { v4 as uuidv4 } from 'uuid'
 import { Field, FieldID } from './field'
 import { OrderBy } from './query'
 import { Resource, ResourceID } from './resource'
-import { v4 as uuidv4 } from 'uuid'
+import { Schema } from './schema'
 
 export type TableViewID = number
 export interface TableViewJson {
@@ -18,6 +18,21 @@ export interface TableViewJson {
 }
 
 export type TableConfigColumnID = string
+
+export const IMAGE_COLUMN_EXPORT_FORMATS = ['webp', 'png', 'jpg'] as const
+export type ImageColumnExportFormat = typeof IMAGE_COLUMN_EXPORT_FORMATS[number]
+export const IMAGE_COLUMN_EXPORT_FIT = ['zoom', 'contain', 'fit'] as const
+export type ImageColumnExportFit = typeof IMAGE_COLUMN_EXPORT_FIT[number]
+
+export interface TableViewImageColumnExportOptions {
+  resolution?: {
+    height?: number
+    width?: number
+    crop_mode?: ImageColumnExportFit
+  }
+  format?: ImageColumnExportFormat
+}
+
 export type TableViewColumnJson = {
   id?: TableConfigColumnID
   type: 'field'
@@ -25,6 +40,7 @@ export type TableViewColumnJson = {
   joiner?: string
   width?: number
   is_visible: boolean
+  export_options?: TableViewImageColumnExportOptions
   labels?: { [key: string]: string }
 }
 
@@ -34,13 +50,13 @@ export class TableConfig {
   public type: 'table'
   public id?: TableViewID
   public label: string
-  public resource_id: ResourceID
+  public resource_id!: ResourceID
   public is_private?: boolean
   public order_by?: OrderBy
   public langs?: string[]
 
   constructor(public schema: Schema, config: TableViewJson) {
-    this.resource = schema.resource(config.resource_id)
+    this.resource = schema.resource(config.resource_id)!
     this.type = 'table'
     this.id = config.id
     this.label = config.label
@@ -48,7 +64,9 @@ export class TableConfig {
       .map(col => {
         try {
           return new TableColumn(this, col)
-        } catch (e) {}
+        } catch (e) {
+          console.log('error creating col', e)
+        }
       })
       .filter(x => x) as any
     this.order_by = clone(config.order_by)
@@ -82,10 +100,11 @@ export class TableColumn {
   joiner?: string
   width?: number
   is_visible?: boolean
+  export_options?: TableViewImageColumnExportOptions
 
   constructor(public table: TableConfig, col: TableViewColumnJson) {
     const path = col.path?.map(id => this.table.resource.schema().field(id))
-    if (path?.findIndex(x => !x) >= 0) throw new Error('invalid item')
+    if (path && path?.findIndex(x => !x) >= 0) throw new Error('invalid item')
 
     this.id = col.id ?? uuidv4()
     this.type = col.type
@@ -94,6 +113,7 @@ export class TableColumn {
     this.width = col.width
     this.is_visible = col.is_visible
     this.labels = cloneDeep(col.labels)
+    this.export_options = col.export_options
   }
 
   lastField() {
@@ -129,6 +149,7 @@ export class TableColumn {
       width: this.width,
       is_visible: this.is_visible!,
       labels: cloneDeep(this.labels),
+      export_options: this.export_options,
     }
   }
 }

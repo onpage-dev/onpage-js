@@ -6,7 +6,7 @@
     "outDir": "./dist",
     "esModuleInterop": true,
     "lib": ["esnext", "DOM"],
-    "moduleResolution": "Node"
+    "strict": true
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*.ts", ".eslintrc.js"]
 }

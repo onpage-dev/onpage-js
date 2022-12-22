@@ -1,4 +1,4 @@
-import { SchemaID } from "."
+import { SchemaID } from '.'
 
 export type CustomTranslationID = number
 export interface CustomTranslationJson {

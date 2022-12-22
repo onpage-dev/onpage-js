@@ -1,4 +1,4 @@
-import { Schema } from "."
+import { Schema } from '.'
 
 export type ExternalDatabaseID = number
 export const SupportedDatabaseDrivers = [
@@ -8,7 +8,7 @@ export const SupportedDatabaseDrivers = [
 ] as const
 export type SupportedDriver = typeof SupportedDatabaseDrivers[number]
 
-export interface ExternalDatabaseJson {
+export interface ExternalDatabase {
   id: ExternalDatabaseID
   label: string
   driver: SupportedDriver

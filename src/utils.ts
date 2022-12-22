@@ -22,3 +22,13 @@ export function deepFreeze(o: any) {
 
   return o
 }
+
+export function isNullOrEmpty(x: any) {
+  return x === null || x === undefined || x === ''
+}
+
+
+
+export function throwError(message: string): never {
+  throw new Error(message)
+}

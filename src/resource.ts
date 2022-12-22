@@ -1,12 +1,28 @@
-import { clone, cloneDeep, isNumber, uniqBy } from 'lodash'
-import { Field, FieldFolder, FieldID, FieldIdentifier } from './field'
+import {
+  clone,
+  cloneDeep,
+  isArray,
+  isNaN,
+  isNumber,
+  isString,
+  uniqBy,
+} from 'lodash'
+import { DataWriter } from './data-writer'
+import {
+  Field,
+  FieldFolder,
+  FieldFolderID,
+  FieldFolderJson,
+  FieldID,
+  FieldIdentifier,
+} from './field'
 import { FilterLabel } from './filters'
 import { LegacyTemplate } from './legacy-template'
 import { FieldCollection } from './misc'
 import { FieldQuery, Query, QueryFilter, SimpleFieldClause } from './query'
 import { PivotViewJson } from './resource-viewer-pivot'
 import { Robot } from './robot'
-import { Schema, ResourceJson } from './schema'
+import { FieldJson, ResourceJson, Schema } from './schema'
 import { Thing, ThingID } from './thing'
 export type ResourceID = number
 export type ResourceName = string
@@ -52,7 +68,7 @@ export class SlotManager {
   }
 
   queryFields(): FieldQuery[] {
-    let ret: FieldQuery[] = []
+    const ret: FieldQuery[] = []
     /* ret = [
       'nome',
       'codice',
@@ -81,27 +97,57 @@ export class SlotManager {
   queryFilters(query: string): QueryFilter {
     const clauses: SimpleFieldClause[] = []
 
-    this.title_slots.forEach(slot =>
-      clauses.push([slot.path.join('.'), 'like', query])
-    )
-    this.subtitle_slots.forEach(slot =>
-      clauses.push([slot.path.join('.'), 'like', query])
-    )
-    this.info_slots.forEach(slot =>
-      clauses.push([slot.path.join('.'), 'like', query])
-    )
+    console.log('query filter title_slots', this.title_slots)
+    console.log('query filter subtitle_slots', this.subtitle_slots)
+    console.log('query filter info_slots', this.info_slots)
+    console.log('query filter SCHEMA', this.resource.schema())
+
+    this.title_slots.forEach(slot => {
+      if (this.isPathValid(slot.path)) {
+        clauses.push([slot.path.join('.'), 'like', query])
+      }
+    })
+    this.subtitle_slots.forEach(slot => {
+      if (this.isPathValid(slot.path)) {
+        clauses.push([slot.path.join('.'), 'like', query])
+      }
+    })
+    this.info_slots.forEach(slot => {
+      if (this.isPathValid(slot.path)) {
+        clauses.push([slot.path.join('.'), 'like', query])
+      }
+    })
     let filter: QueryFilter = ['_or']
     filter = filter.concat(uniqBy(clauses, f => f[0]))
+
+    // If query is number search ThingID
+    if (!isNaN(Number(query))) {
+      filter.push({
+        field: '_id',
+        operator: '=',
+        resource_id: this.resource.id,
+        type: 'field',
+        value: query,
+      } as any)
+    }
     return filter
+  }
+
+  private isPathValid(path: FieldID[]) {
+    return !path
+      .map(f_id => !!this.resource.schema().field(f_id))
+      .includes(false)
   }
 }
 
-export class Resource<Structure extends FieldCollection = undefined> {
+export class Resource<
+  Structure extends FieldCollection | undefined = undefined
+> {
   public readonly fields: Field[] = []
   private readonly id_to_field: Map<number, Field> = new Map()
   private readonly name_to_field: Map<string, Field> = new Map()
-  private json: ResourceJson
-  public slots: SlotManager
+  private json!: ResourceJson
+  public slots!: SlotManager
 
   constructor(private _schema: Schema, json: ResourceJson) {
     this.setJson(json)
@@ -126,7 +172,7 @@ export class Resource<Structure extends FieldCollection = undefined> {
     field_to_remove.forEach(field => {
       this.id_to_field.delete(field.id)
       this.name_to_field.delete(field.name)
-      let i = this.fields.findIndex(f => f.id == field.id)
+      const i = this.fields.findIndex(f => f.id == field.id)
       if (i >= 0) this.fields.splice(i, 1)
     })
     if (!this.slots) {
@@ -134,6 +180,13 @@ export class Resource<Structure extends FieldCollection = undefined> {
     }
   }
 
+  getJson(clone = true) {
+    return clone ? cloneDeep(this.json) : this.json
+  }
+
+  get order() {
+    return this.json.order
+  }
   get id(): ResourceID {
     return this.json.id
   }
@@ -159,7 +212,7 @@ export class Resource<Structure extends FieldCollection = undefined> {
   get filters(): FilterLabel[] {
     return this.json.filters
   }
-  get domain(): String | undefined {
+  get domain(): string | undefined {
     return this.json.domain ?? undefined
   }
   get folders(): FieldFolder[] {
@@ -169,12 +222,16 @@ export class Resource<Structure extends FieldCollection = undefined> {
     return this.json.robots ?? []
   }
   get templates(): LegacyTemplate[] {
-    return (this.json.templates??[]).filter((x: LegacyTemplate) => !x.archived_at)
+    return (this.json.templates ?? []).filter(
+      (x: LegacyTemplate) => !x.archived_at
+    )
   }
   get archived_templates(): LegacyTemplate[] {
-    return (this.json.templates??[]).filter((x: LegacyTemplate) => x.archived_at)
+    return (this.json.templates ?? []).filter(
+      (x: LegacyTemplate) => x.archived_at
+    )
   }
-  get type(): string {
+  get type(): string | undefined {
     return this.json.type
   }
   get opts(): { [key: string]: any } {
@@ -183,7 +240,7 @@ export class Resource<Structure extends FieldCollection = undefined> {
   get table_configs(): undefined | PivotViewJson[] {
     return this.json.table_configs
   }
-  set table_configs(tc: PivotViewJson[]) {
+  set table_configs(tc: PivotViewJson[] | undefined) {
     this.json.table_configs = tc
   }
 
@@ -191,14 +248,40 @@ export class Resource<Structure extends FieldCollection = undefined> {
     return this.id < 30
   }
 
-  field(id: FieldIdentifier): Field | undefined {
-    if (typeof id == 'string' && parseInt(id)) {
-      id = parseInt(id)
+  field(id?: FieldIdentifier | FieldIdentifier[]): Field | undefined {
+    const parse_single_field = (id?: FieldIdentifier): Field | undefined => {
+      if (!id) return
+      // Try to converto the id to numeric value
+      if (typeof id == 'string' && parseInt(id)) {
+        id = parseInt(id)
+      }
+
+      // Use proper map to find the field (id vs name)
+      if (typeof id === 'number') {
+        return this.id_to_field.get(id)
+      } else {
+        return this.name_to_field.get(id)
+      }
     }
-    if (typeof id === 'number') {
-      return this.id_to_field.get(id) ?? undefined
+
+    // Split strings with dot
+    if (isString(id)) {
+      id = id.split('.')
     }
-    return this.name_to_field.get(id) ?? undefined
+
+    // If path is array and has less than 2 elements, it is a base case
+    if (isArray(id) && id.length <= 1) id = id[0]
+
+    // If we need to translate a scalar value, just do it
+    if (!isArray(id)) return parse_single_field(id)
+
+    // If the path has more than 1 field, we get the first field
+    // which must be a relation and we call recursively on its resource
+    const rel_field = parse_single_field(id[0])
+    if (rel_field?.type != 'relation') return
+
+    const rel_res = rel_field.relatedResource()
+    return rel_res.field(id.slice(1))
   }
 
   query(): Query<Structure> {
@@ -213,15 +296,17 @@ export class Resource<Structure extends FieldCollection = undefined> {
     if (!isNumber(id)) return
     const ret = this.thing_cache.get(id)
     if (ret) return ret
-    this.loadGlobalThings([id])
+    void this.loadGlobalThings([id])
   }
   async loadGlobalThings(ids: ThingID[]) {
-    const to_load = ids.filter(
-      id =>
-        !this.hasGlobalThing(id) &&
-        !this.thing_cache_loaders.has(id) &&
-        !this.thing_cache_errors.has(id)
-    )
+    const to_load = ids
+      .map(x => +x)
+      .filter(
+        id =>
+          !this.hasGlobalThing(id) &&
+          !this.thing_cache_loaders.has(id) &&
+          !this.thing_cache_errors.has(id)
+      )
     if (to_load.length) {
       to_load.forEach(id => this.thing_cache_loaders.add(id))
       try {
@@ -257,5 +342,54 @@ export class Resource<Structure extends FieldCollection = undefined> {
     things.forEach(thing => {
       this.thing_cache.set(thing.id, thing)
     })
+  }
+
+  async saveField(form: Partial<FieldJson>, refresh = true): Promise<FieldID> {
+    form.resource_id = this.id
+    form.type = form.type ?? 'string'
+
+    const res = (await this.schema().api.post('fields', form)).data.id
+
+    if (refresh) await this.schema().refresh()
+    return res
+  }
+
+  async addRelation(
+    form: Partial<FieldJson>,
+    refresh = true
+  ): Promise<ResourceID> {
+    form.resource_id = this.id
+    form.rel_type = form.rel_type ?? 'src'
+    form.type = 'relation'
+
+    return await this.saveField(form, refresh)
+  }
+  async deleteField(id: FieldIdentifier, refresh = true) {
+    await this.schema().api.delete(`fields/${this.field(id)?.id}`)
+    if (refresh) await this.schema().refresh()
+  }
+
+  async saveFieldFolder(
+    form: Partial<FieldFolderJson>,
+    refresh = true
+  ): Promise<FieldFolderID> {
+    form.resource_id = this.id
+    form.type = 'folder'
+
+    const res = (await this.schema().api.post('field-folders', form)).data.id
+
+    if (refresh) await this.schema().refresh()
+
+    return res
+  }
+
+  async deleteFieldFolder(id: FieldFolderID, refresh = true) {
+    await this.schema().api.delete(`field-folders/${id}`)
+
+    if (refresh) await this.schema().refresh()
+  }
+
+  writer(): DataWriter {
+    return new DataWriter(this)
   }
 }

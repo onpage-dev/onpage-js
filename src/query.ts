@@ -1,6 +1,5 @@
 import { AxiosRequestConfig } from 'axios'
 import { clone, cloneDeep, isArray, isObject, last, pick } from 'lodash'
-import { Schema } from './schema'
 import { Field, FieldID, FieldIdentifier } from './field'
 import { MetaField, META_FIELDS } from './fields'
 import {
@@ -11,7 +10,8 @@ import {
 } from './filters'
 import { FieldCollection } from './misc'
 import { Resource } from './resource'
-import { TableViewJson, TableViewID } from './resource-viewer-table'
+import { TableViewID, TableViewJson } from './resource-viewer-table'
+import { Schema } from './schema'
 import { Thing, ThingID, ThingValue } from './thing'
 
 export type ReturnType =
@@ -26,7 +26,7 @@ export type ReturnType =
   | 'restore'
   | 'table-view'
   | 'pluck'
-interface RelatedTo {
+export interface RelatedTo {
   thing_id: ThingID
   field_id: FieldID
 }
@@ -87,6 +87,7 @@ export interface ThingsRequestBody {
   options?: any
   field?: FieldIdentifier
   table_config?: any
+  forever?: boolean
   as?: string
   _method?: 'get' | 'post' | 'delete'
   is_trash?: boolean
@@ -98,22 +99,22 @@ export interface OrderBy {
 }
 export type QueryType =
   | {
-      type: 'root'
-      resource: Resource
-      related_to?: RelatedTo
-      options: QueryOptions
-      langs?: string[]
-    }
+    type: 'root'
+    resource: Resource
+    related_to?: RelatedTo
+    options: QueryOptions
+    langs?: string[]
+  }
   | {
-      type: 'relation'
-      field: Field
-      resource: Resource
-      as: string
-    }
+    type: 'relation'
+    field: Field
+    resource: Resource
+    as: string
+  }
   | {
-      type: 'filter'
-      resource: Resource
-    }
+    type: 'filter'
+    resource: Resource
+  }
 
 export class FilterHelper {
   protected filters: QueryFilter[] = []
@@ -132,8 +133,8 @@ export class FilterHelper {
       operator = '='
     }
     const path = String(path_str).split('.')
-    let base_filter: GroupClause = undefined
-    let group_filter: GroupClause = undefined
+    let base_filter: GroupClause | undefined
+    let group_filter: GroupClause | undefined
     let resource = this.resource
     path.slice(0, path.length - 1).forEach(fid => {
       const field = resource.field(fid)
@@ -159,18 +160,38 @@ export class FilterHelper {
       if (!base_filter) base_filter = group_filter
     })
 
-    const field_and_lang = last(path).split('@')
+    const field_and_lang = last(path)!.split('@')
     let field: FieldIdentifier | MetaField = field_and_lang[0]
-    let lang = field_and_lang[1] ?? this.schema.langs[0]
+    const lang = field_and_lang[1] ?? this.schema.langs[0]
 
     const field_and_subfield = field.split(':')
     field = field_and_subfield[0]
     const subfield = field_and_subfield[1] ?? undefined
 
     if (!META_FIELDS.find(x => x == field)) {
-      const f = resource.field(field)
-      if (!f) throw new Error(`Cannot find field ${field} in ${resource.name}`)
-      field = f.name
+      if (!Field.isMetaField(field)) {
+        const f = resource.field(field)
+        if (!f)
+          throw new Error(`Cannot find field ${field} in ${resource.name}`)
+        field = f.name
+      }
+    }
+
+    // Aggregators operators only available for relations
+    // For now only _count is implemented
+    if (Field.isMetaFieldAggregate(field)) {
+      if (!base_filter) {
+        throw new Error(
+          `Aggregator is available after relation fields: ${field}`
+        )
+      }
+      if (field == '_count') {
+        base_filter.relation!.operator = operator
+        base_filter.relation!.value = value
+      } else {
+        throw new Error(`Aggregator not supported: ${field}`)
+      }
+      return this.filter(base_filter)
     }
 
     let clause: FilterClause = {
@@ -182,9 +203,11 @@ export class FilterHelper {
       value,
       lang,
     }
-    if (group_filter) {
+    if (group_filter && base_filter) {
       group_filter.children.push(clause)
       clause = base_filter
+    }
+    if (field == '_count') {
     }
     return this.filter(clause)
   }
@@ -193,22 +216,22 @@ export class FilterHelper {
     field: string,
     subquery?: (q: FilterHelper) => void,
     operator: RelationOperator = 'count_>',
-    value: number = 0
+    value = 0
   ) {
-    let fields = field.split('.')
-    field = fields.shift()
+    const fields = field.split('.')
+    field = fields.shift()!
 
-    let f = this.resource.field(field)
+    const f = this.resource.field(field)
     if (f?.type != 'relation') {
       throw new Error(
-        `Cannot use whereHas on field ${f.name} with type ${f.type}`
+        `Cannot use whereHas on field ${f?.name} with type ${f?.type}`
       )
     }
 
-    let query = new FilterHelper(this.schema, f.relatedResource())
+    const query = new FilterHelper(this.schema, f.relatedResource())
     if (subquery) subquery(query)
 
-    let clause: GroupClause = {
+    const clause: GroupClause = {
       type: 'group',
       resource_id: this.resource.id,
       relation: {
@@ -234,7 +257,7 @@ export class FilterHelper {
     path: FieldIdentifier[],
     limit?: number
   ) {
-    let next_field = path.shift()
+    const next_field = path.shift()!
     if (!path.length) {
       parent.push(next_field)
     } else {
@@ -250,19 +273,19 @@ export class FilterHelper {
         }
         parent.push(group)
       }
-      Query.addPathToFieldQueries(group.fields, path, limit)
+      Query.addPathToFieldQueries(group.fields!, path, limit)
     }
   }
 }
 
 export class Query<
-  Structure extends FieldCollection = undefined
+  Structure extends FieldCollection | undefined = undefined
 > extends FilterHelper {
   private fields: FieldQuery[] = ['+']
-  private trash: boolean
+  private trash = false
   private axios_config?: AxiosRequestConfig
   private relations: Map<string, Query> = new Map()
-  protected order_by: OrderBy
+  protected order_by?: OrderBy
   protected result_limit?: number
   protected result_offset?: number
 
@@ -311,36 +334,37 @@ export class Query<
 
   async find(id: ThingID): Promise<Thing | undefined> {
     this.where('_id', id)
-    let data = this.build('first')
-    let res = await this.api.get('things', data)
+    const data = this.build('first')
+    const res = await this.api.get('things', data)
     return res.data ? this.schema.hydrateThing(res.data) : undefined
   }
 
   async first(): Promise<Thing<Structure> | undefined> {
-    let data = this.build('first')
-    let res = await this.api.get('things', data)
+    const data = this.build('first')
+    const res = await this.api.get('things', data)
     return res.data ? this.schema.hydrateThing(res.data) : undefined
   }
-  async delete(): Promise<ThingID[]> {
-    let data = this.build('delete')
-    let res = await this.api.delete('things', data)
+  async delete(forever?: boolean): Promise<ThingID[]> {
+    const data = this.build('delete')
+    if (forever) data.forever = true
+    const res = await this.api.delete('things', data)
     return res.data as ThingID[]
   }
   async pluck<T extends ThingValue = ThingValue>(
     field: FieldIdentifier
   ): Promise<T[]> {
-    let data = this.build('pluck')
+    const data = this.build('pluck')
     data.field = field
-    let res = await this.api.get('things', data)
+    const res = await this.api.get('things', data)
     return res.data
   }
 
   build(ret?: ReturnType): ThingsRequestBody {
-    let fields: any[] = [...this.fields]
-    this.relations.forEach((q, name) => {
+    const fields: any[] = [...this.fields]
+    this.relations.forEach((q) => {
       fields.push(q.build())
     })
-    let data: ThingsRequestBody = {
+    const data: ThingsRequestBody = {
       filters: this.filters,
       fields,
       order_by: this.order_by,
@@ -365,7 +389,7 @@ export class Query<
       }
 
       // Add resource or resource_id
-      data.resource_id = this.type.resource.id
+      data.resource = this.type.resource.name
 
       // Add related_to
       if (this.type.related_to) {
@@ -377,46 +401,47 @@ export class Query<
       data.as = this.type.as
       return data
     }
+    throw new Error('not implemented')
   }
 
   async get(): Promise<Thing[]> {
     return this.all()
   }
   async count(): Promise<number> {
-    let data = this.build('count')
+    const data = this.build('count')
     return (await this.api.get('things', data, this.axios_config)).data
   }
   async ids(): Promise<ThingID[]> {
-    let data = this.build('ids')
+    const data = this.build('ids')
     return (await this.api.get('things', data, this.axios_config)).data
   }
   async downloadTableView(
     config: TableViewJson | TableViewID,
     langs?: string[]
   ): Promise<string> {
-    let data = this.build('table-view')
+    const data = this.build('table-view')
     data.langs = langs ?? [this.schema.lang]
     data.table_config = config
-    let res = await this.api.get('things', data, this.axios_config)
+    const res = await this.api.get('things', data, this.axios_config)
     return res.data
   }
   async all(): Promise<Thing[]> {
-    let data = this.build('list')
-    let res = await this.api.get('things', data, this.axios_config)
+    const data = this.build('list')
+    const res = await this.api.get('things', data, this.axios_config)
     return Thing.fromResponse<Structure>(this.schema, res.data)
   }
   async restore(): Promise<ThingID[]> {
-    let data = this.build('restore')
+    const data = this.build('restore')
     return (await this.api.get('things', data, this.axios_config)).data
   }
   async paginate(
-    page: number = 1,
-    per_page: number = 50
+    page = 1,
+    per_page = 50
   ): Promise<{ pagination: PaginationInfo; things: Thing[] }> {
-    let data = this.build('paginate')
+    const data = this.build('paginate')
     data.page = page
     data.per_page = per_page
-    let res = await this.api.get('things', data, this.axios_config)
+    const res = await this.api.get('things', data, this.axios_config)
     return {
       pagination: pick(res.data, [
         'current_page',
@@ -440,11 +465,11 @@ export class Query<
   }
 
   limit(limit?: number): Query {
-    this.result_limit = limit > 0 ? limit : undefined
+    this.result_limit = limit && limit > 0 ? limit : undefined
     return this
   }
   offset(offset?: number): Query {
-    this.result_offset = offset > 0 ? offset : undefined
+    this.result_offset = offset && offset > 0 ? offset : undefined
     return this
   }
 
@@ -453,7 +478,7 @@ export class Query<
       relations = [relations]
     }
     relations.forEach(rel => {
-      let path = rel.split('.')
+      const path = rel.split('.')
       let q: Query = this
       path.forEach(rel_name => {
         q = q.setRelation(rel_name, rel_name)
@@ -469,10 +494,10 @@ export class Query<
   }
   setRelation(field: FieldIdentifier | Field, as: string): Query {
     if (!this.relations.has(as)) {
-      let f = isObject(field) ? field : this.resource.field(field)
+      const f = isObject(field) ? field : this.resource.field(field)
       if (f?.type != 'relation') {
         throw new Error(
-          `Cannot use setRelation on field ${f.name} with type ${f.type}`
+          `Cannot use setRelation on field ${f?.name} with type ${f?.type}`
         )
       }
       this.relations.set(
@@ -506,8 +531,8 @@ export class Query<
         'Cannot set query options on query type ' + this.type.type
       )
     }
-    for (var i in options) {
-      this.type.options[i] = options[i]
+    for (const i in options) {
+       (this.type.options as any)[i] = (options as any)[i]
     }
     return this
   }
@@ -522,13 +547,16 @@ export class Query<
     this.type.langs = langs
     return this
   }
+
+  withStatus(status: QueryOptions['status']) {
+    this.setOptions({ status })
+    return this
+  }
 }
 
 export interface Pagination<T = any> {
   current_page: number
   last_page: number
-  from: number
-  to: number
   per_page: number
   total: number
   data: T[]
@@ -546,7 +574,7 @@ export interface QueryOptions {
   hyper_compact?: boolean
   hyper_compact_use_array?: boolean
   use_field_names?: boolean
-  trashed?: boolean
+  status?: 'active' | 'any' | 'deleted'
   timemachine?: string
   load_image_thumbnail?: boolean
 }

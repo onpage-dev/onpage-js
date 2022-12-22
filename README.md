@@ -2,7 +2,6 @@
 
 With this library you can easy query your data using an On Page ® API token.
 
-
 ## Installation
 
 ```bash
@@ -15,14 +14,11 @@ yarn add onpage-js
 
 ### Setup
 
-First, you need to generate an __API token__ in On Page, from the "Links" page from the menubar.
-Once you have generated your token (with the needed read/write permissions) you can use this library and connect to your data like so:
-
 ```ts
 import {Api} from 'onpage-js'
 let api = new Api('MY-SUBDOMAIN', api_token)
 api.loadSchema().then(schema => {
-  console.log(schema.label, 'is ready)
+  console.log(schema.label, 'is ready')
 })
 ```
 

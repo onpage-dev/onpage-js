@@ -1,6 +1,4 @@
-export const META_FIELDS = [
-  '_id', '_created_at', '_updated_at'
-] as const
+export const META_FIELDS = ['_id', '_created_at', '_updated_at'] as const
 export type MetaField = typeof META_FIELDS[number]
 
 const DIM2_FIELDS = [
@@ -10,10 +8,10 @@ const DIM2_FIELDS = [
   },
   {
     type: 'real',
-    label: 'y'
-  }
+    label: 'y',
+  },
 ]
-export type Dim2Field = (typeof DIM2_FIELDS)[number]
+export type Dim2Field = typeof DIM2_FIELDS[number]
 
 const DIM3_FIELDS = [
   {
@@ -22,14 +20,14 @@ const DIM3_FIELDS = [
   },
   {
     type: 'real',
-    label: 'y'
+    label: 'y',
   },
   {
     type: 'real',
-    label: 'z'
-  }
+    label: 'z',
+  },
 ]
-export type Dim3Field = (typeof DIM3_FIELDS)[number]
+export type Dim3Field = typeof DIM3_FIELDS[number]
 
 const FILE_FIELDS = [
   {
@@ -38,10 +36,10 @@ const FILE_FIELDS = [
   },
   {
     type: 'string',
-    label: 'token'
-  }
+    label: 'token',
+  },
 ]
-export type FileField = (typeof FILE_FIELDS)[number]
+export type FileField = typeof FILE_FIELDS[number]
 
 const STRING_FIELDS = null
 const NUMBER_FIELDS = null
@@ -69,5 +67,5 @@ export const SubFields = new Map([
   ['op-field-type-json', STRING_FIELDS],
   ['op-field-type-editorjs', STRING_FIELDS],
   ['op-field-type-file', FILE_FIELDS],
-  ['op-field-type-image', FILE_FIELDS]
+  ['op-field-type-image', FILE_FIELDS],
 ])

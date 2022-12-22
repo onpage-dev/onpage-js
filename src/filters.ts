@@ -123,9 +123,9 @@ export interface ReferenceClause extends FilterBase {
 export type FilterClause = FieldClause | GroupClause | ReferenceClause
 export function createFilterGroup(
   resource_id: ResourceID,
-  number_children: Number = 0
+  number_children = 0
 ): GroupClause {
-  let group = {
+  const group = {
     resource_id,
     type: 'group',
     children: [],

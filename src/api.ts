@@ -1,13 +1,15 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
+import { ApiTokenValue } from '.'
 import { Backend } from './backend'
-import { Schema, SchemaJson } from './schema'
+import { Schema, SchemaID, SchemaJson } from './schema'
 import { deepFreeze } from './utils'
+
 export class Api extends Backend {
-  http: AxiosInstance
+  http!: AxiosInstance
 
   constructor(
     private company: string,
-    private token: string,
+    private token: ApiTokenValue,
     private is_user_mode: boolean = false
   ) {
     super()
@@ -35,16 +37,24 @@ export class Api extends Backend {
     })
   }
 
-  setupForProject(schema: Schema) {
-    this.http.defaults.headers['x-schema'] = schema.id
+  setupForProject(schema: Schema | SchemaJson) {
+    this.http.defaults.headers.common['x-schema'] = schema.id
+    this.http.defaults.headers.common['x-company'] = schema.company_id
   }
 
   async loadSchema(schema_id?: number | string): Promise<Schema> {
-    let schema_json = await this.schemaRequest(schema_id)
+    const schema_json = await this.schemaRequest(schema_id)
     const api = this.clone()
-    api.http.defaults.headers['x-schema'] = schema_json.id
+    api.http.defaults.headers.common['x-schema'] = schema_json.id
+    api.http.defaults.headers.common['x-company'] = schema_json.company_id
     return new Schema(api, schema_json)
   }
+
+  async saveSchema(schema: SchemaJson): Promise<SchemaID> {
+    const res = await this.post('schemas/create', schema)
+    return res.data.id
+  }
+
   async schemaRequest(schema_id?: number | string): Promise<SchemaJson> {
     if (this.is_user_mode && !schema_id) {
       throw new Error('loadSchema needs a schema_id when APIs are in user mode')
@@ -56,33 +66,6 @@ export class Api extends Backend {
       ? (await this.get(`schemas/${schema_id}`, {})).data
       : (await this.get('schema', {})).data
   }
-  get<T = any>(
-    endpoint: string,
-    params: object = {},
-    config?: AxiosRequestConfig
-  ): Promise<AxiosResponse<T>> {
-    params['_method'] = 'get'
-    return this.post(endpoint, params, config)
-  }
-
-  delete<T = any>(
-    endpoint: string,
-    params: object = {},
-    config?: AxiosRequestConfig
-  ): Promise<AxiosResponse<T>> {
-    params['_method'] = 'delete'
-    return this.post(endpoint, params, config)
-  }
-
-  post<T = any>(
-    endpoint: string,
-    data: any,
-    config?: AxiosRequestConfig
-  ): Promise<AxiosResponse<T>> {
-    this.req_count++
-    return this.http.post(endpoint, data, config)
-  }
-
   request<T>(
     method: 'get' | 'post' | 'delete',
     endpoint: string,
@@ -90,6 +73,11 @@ export class Api extends Backend {
     config?: AxiosRequestConfig
   ): Promise<AxiosResponse<T>> {
     this.req_count++
+    if (method != 'post') {
+      if (!data) data = {}
+      data._method = method
+      method = 'post'
+    }
     return deepFreeze(this.http[method](endpoint, data, config))
   }
 }

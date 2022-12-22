@@ -1,9 +1,10 @@
-import { Backend } from '.'
+import { Api, Backend } from '.'
 
 export interface OpFileRaw {
   name: string
   token: string
   ext?: string
+  extension?: string
   size?: number
   width?: number
   height?: number
@@ -30,13 +31,16 @@ export class OpFile {
   public name: string
   public token: string
   public ext?: string
+  public extension?: string
   public size?: number
   public width?: number
   public height?: number
   public color_r?: number
   public color_b?: number
   public color_g?: number
+  public color_a?: number
   public thumb?: string
+  public focus?: [number, number]
 
   constructor(public api: Backend, file: OpFileRaw) {
     this.token = file.token
@@ -49,7 +53,13 @@ export class OpFile {
   }
 
   link(
-    opts: Partial<{ x: number; y: number; contain: 'contain' }> = {}
+    opts: Partial<{
+      x: number
+      y: number
+      inline: boolean
+      ext: string
+      mode: 'contain' | 'max' | 'trim'
+    }> = {}
   ): string {
     let suffix = ''
     if (this.isImage()) {
@@ -65,8 +75,8 @@ export class OpFile {
         }
       }
 
-      if ('contain' in opts) {
-        suffix += '-contain'
+      if (opts.mode) {
+        suffix += '-' + opts.mode
       }
     }
     if (suffix || 'ext' in opts) {
@@ -75,12 +85,20 @@ export class OpFile {
       }
       suffix += `.${opts['ext']}`
     }
-    return this.api.storageLink(`${this.token}${suffix}`, this.name)
+    return this.api.storageLink(
+      `${this.token}${suffix}`,
+      this.name,
+      opts.inline
+    )
   }
 
   isImage(): boolean {
-    let ext = this.name.split('.').pop().toLowerCase()
+    const ext = this.extension ?? this.name.split('.').pop()!.toLowerCase()
     return OpFile.IMAGE_FORMATS.includes(ext)
+  }
+
+  getExt(): string {
+    return this.extension ?? this.name.split('.').pop()!.toLowerCase()
   }
 
   serialize() {
@@ -94,8 +112,15 @@ export class OpFile {
     if (!this.height || !this.width) return
     return this.height / this.width
   }
-  colorRgb(): string | undefined {
+  colorRgb(a = false): string | undefined {
     if (!this.color_r) return
-    return `rgb(${this.color_r},${this.color_g},${this.color_b})`
+    return `rgb(${this.color_r},${this.color_g},${this.color_b}${
+      a ? ',' + (this.color_a! / 255).toFixed(2) : ''
+    })`
+  }
+
+  static fromRaw(raw: OpFileRaw): OpFile {
+    const api = new Api('app', '')
+    return new OpFile(api, raw)
   }
 }

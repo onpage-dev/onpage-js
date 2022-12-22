@@ -1,13 +1,14 @@
-import { isArray, isObject } from 'lodash'
-import { Schema, FieldJson } from './schema'
-import { Resource } from './resource'
+import { cloneDeep, isArray, isObject } from 'lodash'
+import { Resource, ResourceID } from './resource'
+import { FieldJson, Schema } from './schema'
 import { ThingValue } from './thing'
 export type FieldFolderID = number
 
 export type FieldID = number
 export type FieldName = string
 export type FieldIdentifier = FieldID | FieldName
-
+export const FIELD_VISIBILITY_TYPES = ['private', 'public'] as const
+export type FieldVisibilityType = typeof FIELD_VISIBILITY_TYPES[number]
 export interface FieldFolder {
   id: FieldFolderID
   name?: string
@@ -16,6 +17,21 @@ export interface FieldFolder {
   is_default: boolean
   fids: FieldID[]
 }
+
+export interface FieldFolderJson {
+  id: FieldFolderID,
+  name: string,
+  resource_id: ResourceID,
+  order: number,
+  labels: {
+    [key: string]: string
+  },
+  type: "folder",
+  form_fields: FieldID[
+  ],
+  arrow_fields: FieldID[]
+}
+
 export class Field {
   private json!: FieldJson
 
@@ -27,6 +43,10 @@ export class Field {
     this.json = json
   }
 
+  getJson(clone = true) {
+    return clone ? cloneDeep(this.json) : this.json
+  }
+
   get id(): FieldID {
     return this.json.id
   }
@@ -35,6 +55,9 @@ export class Field {
   }
   get labels(): { [key: string]: any } {
     return this.json.labels
+  }
+  get visibility(): FieldVisibilityType {
+    return this.json.visibility ?? 'public'
   }
   getLabel(lang: string): string {
     return (
@@ -60,25 +83,25 @@ export class Field {
   get is_translatable(): boolean {
     return this.json.is_translatable
   }
-  get unit(): string {
+  get unit(): string | undefined {
     return this.json.unit
   }
   get is_multiple(): boolean {
     return this.json.is_multiple
   }
   get is_unique(): boolean {
-    return this.json.is_unique
+    return !!this.json.is_unique
   }
   get order(): number {
     return this.json.order
   }
-  get rel_res_id(): number {
+  get rel_res_id(): number | undefined {
     return this.json.rel_res_id
   }
-  get rel_field_id(): number {
+  get rel_field_id(): number | undefined {
     return this.json.rel_field_id
   }
-  get rel_type(): 'src' | 'dst' | 'sync' {
+  get rel_type(): 'src' | 'dst' | 'sync' | undefined {
     return this.json.rel_type
   }
   get opts(): { [key: string]: any } {
@@ -100,7 +123,7 @@ export class Field {
     return this.json.is_textual
   }
 
-  identifier(lang?: string) : string {
+  identifier(lang?: string): string {
     let identifier: string = this.name
     if (this.is_translatable) {
       if (!lang) {
@@ -124,8 +147,9 @@ export class Field {
     return this._schema.resource(this.rel_res_id)!
   }
   relatedField(): Field {
-    let rel_res = this.relatedResource()
-    return rel_res.field(this.rel_field_id)!
+    if (this.type != 'relation') return undefined!
+    const rel_res = this.relatedResource()
+    return rel_res.field(this.rel_field_id!)!
   }
 
   isOutgoingRelation(): boolean {
@@ -137,13 +161,38 @@ export class Field {
   isMedia(): boolean {
     return this.type == 'file' || this.type == 'image'
   }
+  isNumber(): boolean {
+    return [
+      'number',
+      'int',
+      'real',
+      'price',
+      'weight',
+      'volume',
+      'dim1',
+    ].includes(this.type)
+  }
+  isComplexNumber(): boolean {
+    return ['dim2', 'dim3'].includes(this.type)
+  }
+  isBoolean(): boolean {
+    return this.type == 'bool'
+  }
+  isText(): boolean {
+    return [
+      'string',
+      'url',
+      'text',
+      'markdown',
+      'json',
+      'html',
+      'date',
+    ].includes(this.type)
+  }
 
-  refresh() {
-    this.schema()
-      .api.get(`fields/${this.id}`)
-      .then(res => {
-        this.setJson(res.data)
-      })
+  async refresh() {
+    const res = await this.schema().api.get(`fields/${this.id}`)
+    this.setJson(res.data)
   }
 
   doValueArraysDiffer(a: ThingValue[], b: ThingValue[]): boolean {
@@ -179,13 +228,29 @@ export class Field {
     return true
   }
 
-  async setOptions(opts: { [key: string]: any }, merge: boolean = true) {
+  async setOptions(opts: { [key: string]: any }, merge = true) {
     this.json.opts = (
       await this.schema().api.post(`fields/${this.id}/opts`, { opts, merge })
     ).data
   }
+
+  async delete(
+    id: FieldIdentifier,
+    refresh = true
+  ) {
+    (await this.resource().deleteField(this.id))
+    if (refresh) await this.schema().refresh()
+  }
+
   getFolders(): FieldFolder[] {
     if (!this.resource()) return []
     return this.resource().folders.filter(f => f.fids.includes(this.id))
+  }
+
+  static isMetaField(field?: string): boolean {
+    return Boolean(field && field[0] === '_')
+  }
+  static isMetaFieldAggregate(field?: string): boolean {
+    return field === '_count'
   }
 }

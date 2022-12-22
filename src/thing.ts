@@ -1,4 +1,5 @@
 import {
+  clone,
   cloneDeep,
   flatten,
   forEach,
@@ -8,15 +9,17 @@ import {
   isObject,
   isString,
   isSymbol,
-  uniqBy,
+  uniqBy
 } from 'lodash'
 import { stripHtml } from 'string-strip-html'
-import { Schema, ThingJson } from './schema'
-import { FieldCollection } from './misc'
+import { DataWriter } from './data-writer'
+import { Field, FieldFolderID, FieldID, FieldIdentifier } from './field'
 import { OpFile, OpFileRaw } from './file'
-import { FieldFolderID, FieldIdentifier, FieldID, Field } from './field'
-import { ResourceID, Resource } from './resource'
 import { LocalApi } from './local-api'
+import { FieldCollection } from './misc'
+import { Resource, ResourceIdentifier } from './resource'
+import { Schema, ThingJson } from './schema'
+import { ThingEditor } from './thing-editor'
 export type ThingID = number
 export type TableConfigID = number
 
@@ -28,6 +31,14 @@ export type ThingValue =
   | [number, number, number]
   | OpFile
 
+export type ThingValueForm =
+  | boolean
+  | string
+  | number
+  | [number, number]
+  | [number, number, number]
+  | { token: string, name: string }
+
 export interface ThingFullValue<T = ThingValue> {
   lang?: string
   value: T
@@ -35,8 +46,10 @@ export interface ThingFullValue<T = ThingValue> {
 
 export interface ThingSaveRequest {
   id?: ThingID
-  resource_id: ResourceID
+  thing_id?: ThingID // required for drafts
+  resource?: ResourceIdentifier
   default_folder_id?: FieldFolderID
+  ignore_folder?: boolean
   data: {
     field: FieldIdentifier
     values: ThingValue[]
@@ -57,11 +70,11 @@ export interface ThingParent {
   through: string
 }
 
-export class Thing<Structure extends FieldCollection = undefined> {
+export class Thing<Structure extends FieldCollection | undefined = undefined> {
   relations: Map<string, Thing[]> = new Map()
   __focus?: FieldID
   __edit_table?: any
-  _dlang: string
+  _dlang!: string
   domain: any
   computed_values?: {
     [key: string]: (lang: string) => ThingValue[]
@@ -83,7 +96,7 @@ export class Thing<Structure extends FieldCollection = undefined> {
     })
     if (parent) {
       let name = parent.through
-      let parent_field = parent.source.resource().field(name)
+      const parent_field = parent.source.resource().field(name)
       if (parent_field?.type == 'relation') {
         if (parent_field.relatedField()) {
           name = parent_field.relatedField().name
@@ -96,18 +109,18 @@ export class Thing<Structure extends FieldCollection = undefined> {
   }
 
   setValues(
-    field: Field | FieldIdentifier,
+    field: Field | FieldIdentifier | undefined,
     lang: string | undefined,
     values: ThingValue[]
   ) {
-    if (this.resource().is_virtual) return
-    if (isString(field) || isNumber(field)) field = this.resource().field(field)
+    if (!field || this.resource().is_virtual) return
+    if (!(field instanceof Field)) field = this.resource().field(field)
     if (!field || field.resource_id != this.resource_id) {
       throw new Error(
         `Invalid field set for thing of resource ${this.resource_id}: got ${field?.resource_id}`
       )
     }
-    let alias = field.identifier(lang)
+    const alias = field.identifier(lang)
     this.json.fields[alias] = values
   }
 
@@ -117,13 +130,22 @@ export class Thing<Structure extends FieldCollection = undefined> {
   get resource_id(): number {
     return this.json.resource_id
   }
-  get created_at(): string {
+  get schema_id(): number {
+    return this.schema.id
+  }
+  get created_at() {
     return this.json.created_at
   }
-  get updated_at(): string {
+  get author() {
+    return this.json.author
+  }
+  get deletor() {
+    return this.json.deletor
+  }
+  get updated_at() {
     return this.json.updated_at
   }
-  get deleted_at(): string {
+  get deleted_at(): string | undefined {
     return this.json.deleted_at
   }
   get default_folder_id(): undefined | FieldFolderID {
@@ -141,13 +163,13 @@ export class Thing<Structure extends FieldCollection = undefined> {
   get label(): string {
     return this.thingSlots().title ?? this.json.label
   }
-  get labels(): { [key: string]: string } {
+  get labels() {
     return this.json.labels
   }
-  get lang(): string {
+  get lang() {
     return this.json.lang
   }
-  get tag_ids(): number[] {
+  get tag_ids() {
     return this.json.tags
   }
 
@@ -160,7 +182,10 @@ export class Thing<Structure extends FieldCollection = undefined> {
     return this.json.fields[codename] ?? []
   }
 
-  getRelationIds(field: FieldIdentifier | Field): ThingID[] | undefined {
+  getRelationIds(
+    field: FieldIdentifier | Field | undefined
+  ): ThingID[] | undefined {
+    if (!field) return
     if (!isObject(field)) {
       field = this.resolveField(field)
       if (!field) return undefined
@@ -170,11 +195,7 @@ export class Thing<Structure extends FieldCollection = undefined> {
 
   cloneValues<
     TV extends ThingValue = ThingValue,
-    F extends
-      | Field
-      | (Structure extends undefined
-          ? FieldIdentifier
-          : keyof Structure) = Structure extends undefined ? string : Field
+    F extends FieldIdentifier | Field = FieldIdentifier | Field
   >(
     field_name: F,
     lang?: string | string[],
@@ -193,11 +214,7 @@ export class Thing<Structure extends FieldCollection = undefined> {
   }
   values<
     TV extends ThingValue = ThingValue,
-    F extends
-      | Field
-      | (Structure extends undefined
-          ? FieldIdentifier
-          : keyof Structure) = Structure extends undefined ? string : Field
+    F extends FieldIdentifier | Field = FieldIdentifier | Field
   >(
     field_name: F,
     lang?: string | string[],
@@ -240,47 +257,41 @@ export class Thing<Structure extends FieldCollection = undefined> {
       values.splice(1)
     }
 
-    return ret_or_fallback(values)
+    return ret_or_fallback(values) ?? []
   }
 
   val<
     TV extends ThingValue = ThingValue,
-    F extends
-      | Field
-      | (Structure extends undefined
-          ? string | number
-          : keyof Structure) = Structure extends undefined
-      ? string | number
-      : Field
+    F extends FieldIdentifier | Field = FieldIdentifier | Field
   >(
     field_name: F,
     lang?: string | string[]
   ):
     | (Structure extends undefined
-        ? TV
-        : F extends Field
-        ? TV
-        : F extends keyof Structure
-        ? Structure[F]
-        : TV)
+      ? TV
+      : F extends Field
+      ? TV
+      : F extends keyof Structure
+      ? Structure[F]
+      : TV)
     | undefined {
     return this.values<TV, F>(field_name, lang)[0]
   }
   file<
     F extends Structure extends undefined
-      ? string
-      : KeysOfType<Structure, OpFile>
+    ? string
+    : KeysOfType<Structure, OpFile>
   >(field_name: F | Field, lang?: string): OpFile | undefined {
-    let field = this.resolveField(field_name)
+    const field = this.resolveField(field_name)
     if (!field?.isMedia()) return undefined
     return this.val(field_name, lang) as OpFile | undefined
   }
   files<
     F extends Structure extends undefined
-      ? string
-      : KeysOfType<Structure, OpFile>
+    ? string
+    : KeysOfType<Structure, OpFile>
   >(field_name: F | Field, lang?: string): OpFile[] {
-    let field = this.resolveField(field_name)
+    const field = this.resolveField(field_name)
     if (!field?.isMedia()) return []
     return this.values(field_name, lang) as OpFile[]
   }
@@ -291,7 +302,7 @@ export class Thing<Structure extends FieldCollection = undefined> {
     if (isSymbol(field_name)) return
     if (field_name instanceof Field) return field_name
     const res = this.resource()
-    if (!res) throw new Error('no resource' + this.resource_id)
+    if (!res) return
     const field = res.field(field_name)
     return field
   }
@@ -300,13 +311,18 @@ export class Thing<Structure extends FieldCollection = undefined> {
     return this.schema.resource(this.json.resource_id)!
   }
 
+  editor(updater?: DataWriter): ThingEditor {
+    if (!updater) updater = this.resource().writer()
+    return updater.forThing(this.id)
+  }
+
   getRelated(codename: FieldIdentifier): Thing[] | undefined {
     const field: Field | undefined = this.resource().field(codename)
-    const api = this.schema.api
-    // console.log('api', api)
     if (field && this.schema.api instanceof LocalApi) {
       // console.log(field.name, this.rel_ids)
-      return this.rel_ids[field.name]?.map(id => this.schema.find(id))
+      return this.rel_ids[field.name]
+        ?.map(id => this.schema.find(id)!)
+        .filter(x => x)
     } else {
       return this.relations.get(codename.toString())
     }
@@ -314,12 +330,12 @@ export class Thing<Structure extends FieldCollection = undefined> {
   relSync(input_path: FieldIdentifier | FieldIdentifier[]): Thing[] {
     if (isString(input_path)) input_path = input_path.split('.')
     if (!isArray(input_path)) input_path = [input_path]
-    const path = input_path
+    const path = clone(input_path)
     if (!path.length) {
       throw new Error('Called rel with empty path')
     }
 
-    let codename = path.shift()! // remove first
+    const codename = path.shift()! // remove first
 
     const related = this.getRelated(codename)
     if (!related) {
@@ -328,7 +344,7 @@ export class Thing<Structure extends FieldCollection = undefined> {
 
     let rel = related
     if (path.length && related.length) {
-      let related = rel.map((thing): Thing[] => {
+      const related = rel.map((thing): Thing[] => {
         return thing.relSync([...path])
       })
       rel = uniqBy(flatten(related), x => x.id)
@@ -341,23 +357,23 @@ export class Thing<Structure extends FieldCollection = undefined> {
       throw new Error('Called rel with empty path')
     }
 
-    let codename = path.shift()! // remove first
+    const codename = path.shift()! // remove first
     if (!this.relations.has(codename)) {
-      let plus = []
+      const plus = []
       if (path.length) {
         plus.push(path.join('.'))
       }
-      let field = this.resolveField(codename)
+      const field = this.resolveField(codename)
       if (!field)
         throw new Error(
           'Cannot find field ' + codename + ' in ' + this.resource().name
         )
       await this.loadRelation(field, plus)
     }
-    let rel = this.relations.get(codename)!
+    const rel = this.relations.get(codename)!
     if (!path.length) return rel
 
-    let related = await Promise.all(
+    const related = await Promise.all(
       rel.map(async (thing): Promise<Thing[]> => thing.rel([...path]))
     )
     return uniqBy(flatten(related), x => x.id)
@@ -373,13 +389,15 @@ export class Thing<Structure extends FieldCollection = undefined> {
       this.relations.set(alias, cur_rels)
     }
     things.forEach(thing => {
-      if (!cur_rels.find(x => x.id == thing.id)) {
-        cur_rels.push(thing)
+      if (!cur_rels?.find(x => x.id == thing.id)) {
+        cur_rels?.push(thing)
       }
     })
   }
 
-  static fromResponse<Structure extends FieldCollection = undefined>(
+  static fromResponse<
+    Structure extends FieldCollection | undefined = undefined
+  >(
     schema: Schema,
     json_things: ThingJson[],
     parent?: ThingParent
@@ -388,7 +406,7 @@ export class Thing<Structure extends FieldCollection = undefined> {
   }
 
   async loadRelation(field: Field, plus: string[] = []) {
-    let result = await this.schema
+    const result = await this.schema
       .query(field.relatedResource().name)
       .relatedTo(field, this.id)
       .with(plus)
@@ -406,14 +424,14 @@ export class Thing<Structure extends FieldCollection = undefined> {
     cover?: OpFile
     info?: string
   } {
-    let slots = {
+    const slots = {
       title: [],
       subtitle: [],
       info: [],
       cover: [],
     } as { [key: string]: any }
 
-    let read_slot = (path: FieldID[]): ThingValue[] => {
+    const read_slot = (path: FieldID[]): ThingValue[] => {
       path = cloneDeep(path)
       const final_field_id = path.pop()!
       const final_field = this.schema.field(final_field_id)
@@ -494,6 +512,12 @@ export class Thing<Structure extends FieldCollection = undefined> {
   getJson() {
     return this.json
   }
+
+  // async downloadAsPdf(source: { type: 'component'; id: number }) {
+  //   const {file:OpFileRaw} = this.schema.api.get('components/as-pdf', {
+  //     params:
+  //   })
+  // }
 }
 
 function formatNumber(
@@ -508,10 +532,10 @@ function formatNumber(
 
     const negativeSign = amount < 0 ? '-' : ''
 
-    let i = parseInt(
+    const i = parseInt(
       (amount = Math.abs(Number(amount) || 0).toFixed(decimalCount))
     ).toString()
-    let j = i.length > 3 ? i.length % 3 : 0
+    const j = i.length > 3 ? i.length % 3 : 0
 
     return (
       negativeSign +
@@ -519,9 +543,9 @@ function formatNumber(
       i.substr(j).replace(/(\d{3})(?=\d)/g, '$1' + thousands) +
       (decimalCount
         ? decimal +
-          Math.abs(+amount - +i)
-            .toFixed(decimalCount)
-            .slice(2)
+        Math.abs(+amount - +i)
+          .toFixed(decimalCount)
+          .slice(2)
         : '')
     )
   } catch (e) {

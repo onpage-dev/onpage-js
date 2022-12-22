@@ -1,10 +1,43 @@
 import { isArray, isObject } from 'lodash'
+import { Field } from '.'
 import { Backend } from './backend'
-import { FilterClause } from './filters'
+import { FilterClause, Operator } from './filters'
 import { Pagination, QueryFilter, ThingsRequestBody } from './query'
-import { Schema, SchemaJson, ThingJson } from './schema'
-import { Thing } from './thing'
-import { bench } from './utils'
+import { Schema, SchemaJson } from './schema'
+import { Thing, ThingValue } from './thing'
+import { bench, isNullOrEmpty } from './utils'
+
+const check_filter: {
+  [key in Operator]?: (
+    field: Field,
+    values: ThingValue[],
+    checker?: ThingValue
+  ) => boolean
+} = {
+  empty(field: Field, values: ThingValue[]): boolean {
+    return !values.length
+  },
+  not_empty(field: Field, values: ThingValue[], checker?: ThingValue): boolean {
+    return !check_filter['empty']!(field, values, checker)
+  },
+  like(field: Field, values: ThingValue[], checker?: ThingValue): boolean {
+    if (isNullOrEmpty(checker)) return false
+    return values.some(v =>
+      String(v ?? '')
+        .toLocaleLowerCase()
+        .includes(String(checker ?? '').toLocaleLowerCase())
+    )
+  },
+  not_like(field: Field, values: ThingValue[], checker?: ThingValue): boolean {
+    return !check_filter['like']!(field, values, checker)
+  },
+  '='(field: Field, values: ThingValue[], checker?: ThingValue): boolean {
+    return values.some(v => String(v ?? '') === String(checker ?? ''))
+  },
+  '<>'(field: Field, values: ThingValue[], checker?: ThingValue): boolean {
+    return !check_filter['=']!(field, values, checker)
+  },
+}
 
 export class LocalApi extends Backend {
   schema: Schema
@@ -26,7 +59,7 @@ export class LocalApi extends Backend {
 
   async request(
     method: 'get' | 'post' | 'delete',
-    endpoint: String,
+    endpoint: string,
     data?: any
   ) {
     this.req_count++
@@ -63,8 +96,8 @@ export class LocalApi extends Backend {
         if (!rel_field)
           throw new Error('cannot find field ' + request.related_to.field_id)
         thing_query = this.schema
-          .find(request.related_to.thing_id)
-          ?.relSync(rel_field.name)
+          .find(request.related_to.thing_id)!
+          .relSync(rel_field.name)
       } else {
         thing_query = [...this.schema.cached_things.values()].filter(
           x => x.resource_id == res.id
@@ -99,7 +132,7 @@ export class LocalApi extends Backend {
     }
   }
 
-  applyFilters(query: Thing[], filters: QueryFilter[]) {
+  applyFilters(query: Thing[], filters: QueryFilter[]): Thing[] {
     filters.forEach(f => {
       if (isArray(f) && f.length == 3) {
         query = []
@@ -109,6 +142,33 @@ export class LocalApi extends Backend {
           if (fc.field == '_id' && fc.operator == '=') {
             query = query.filter(x => x.id == fc.value)
           }
+        }
+        // GroupClause
+        if (fc.type == 'group') {
+          query = query.filter(th => {
+            let thing_ok = false
+
+            fc.children.forEach(filter_clause => {
+              if (filter_clause.type == 'field') {
+                const field = th.resolveField(filter_clause.field)
+                if (!field) return
+                const values = th.values(field.name, filter_clause.lang)
+                console.log('values for field', field, 'is', values)
+
+                if (
+                  check_filter[filter_clause.operator]!(
+                    field,
+                    values,
+                    filter_clause.value
+                  )
+                ) {
+                  thing_ok = true
+                }
+              }
+            })
+
+            return thing_ok
+          })
         }
       }
     })

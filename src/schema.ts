@@ -1,25 +1,25 @@
 import { clone, cloneDeep } from 'lodash'
 import mitt, { Emitter } from 'mitt'
-import { Api, ResourceName, ResourceSlotsResponse } from '.'
+//import { getSchemaService } from '/home/giorgio/op/ui/onpage-ui/src/utilities/schema-loader' //TODO how to use
+import {
+  Api,
+  Author,
+  FieldVisibilityType,
+  OpFile,
+  OpFileRaw,
+  ResourceName,
+  ResourceSlotsResponse,
+} from '.'
 import { Backend } from './backend'
 
-import { CustomTranslationJson } from './custom-translations'
 import { SchemaEvents } from './events'
-import { ExternalDatabaseJson } from './external-dbs'
-import { FieldID, Field } from './field'
+import { Field, FieldID } from './field'
 import { LocalApi } from './local-api'
 import { LocalStorage } from './local-storage'
 import { FieldCollection } from './misc'
 import { Query } from './query'
-import { ResourceID, Resource, ResourceIdentifier } from './resource'
-import {
-  FolderView,
-  FolderViewID,
-  FolderViewJson,
-  FolderViewParser,
-} from './resource-viewer-folders'
-import { TableViewJson } from './resource-viewer-table'
-import { Lib } from './robot'
+import { Resource, ResourceID, ResourceIdentifier } from './resource'
+import { FolderViewID } from './resource-viewer-folders'
 import { Thing, ThingID, ThingParent, ThingValue } from './thing'
 
 export type SchemaID = number
@@ -48,13 +48,16 @@ export interface FieldJson extends JsonBase {
   labels: { [key: string]: string }
   description?: string
   descriptions: { [key: string]: string }
+  visibility?: FieldVisibilityType
 }
 export interface ResourceJson extends JsonBase {
   id: ResourceID
   name: string
   opts: any
   fields: FieldJson[]
+  schema_id?: SchemaID
   type?: string
+  order?: string
   slots?: ResourceSlotsResponse
   filters?: any
   domain?: any
@@ -79,6 +82,8 @@ export interface ThingJson extends JsonBase {
   default_folder_id?: FolderViewID
   table_configs?: any[]
   parent_count?: number
+  author?: Author
+  deletor?: Author
   tags?: number[]
   lang?: string
 }
@@ -186,7 +191,7 @@ export class SchemaThing extends Thing {
     })
     this.computed_values = {
       id: () => [_value.id],
-      label: (lang: string) => [_value.label],
+      label: () => [_value.label],
     }
   }
 }
@@ -216,7 +221,7 @@ export class Schema {
   }> = {}
   public lang: string
   public fallback_lang?: string
-  private json: SchemaJson
+  private json!: SchemaJson
   public local_api: LocalApi
   public readonly bus: Emitter<SchemaEvents> = mitt<SchemaEvents>()
   constructor(public api: Backend, json: any) {
@@ -234,13 +239,13 @@ export class Schema {
   get label(): string {
     return this.json.label
   }
-  get suspended_at(): string {
+  get suspended_at() {
     return this.json.suspended_at
   }
-  get created_at(): string {
+  get created_at() {
     return this.json.created_at
   }
-  get copy_status(): string {
+  get copy_status() {
     return this.json.copy_status
   }
   get usage_stats(): any[] {
@@ -252,21 +257,21 @@ export class Schema {
   get langs(): string[] {
     return this.json.langs
   }
-  get libs(): Lib[] {
+  get libs() {
     return this.json.libs
   }
-  getJson() {
-    return this.json
+  getJson(clone = true) {
+    return clone ? cloneDeep(this.json) : this.json
   }
 
   async refresh(): Promise<Schema> {
-    let res = await this.api.schemaRequest(this.id)
+    const res = await this.api.schemaRequest(this.id)
     this.setJson(res, true)
     return this
   }
   public setJson(json: any, is_update = false) {
     this.json = json
-    const new_fields = []
+    const new_fields: Field[] = []
     const res_to_remove = clone(this.id_to_resource)
     const field_to_remove = clone(this.id_to_field)
     json.resources.forEach((res_json: any) => {
@@ -293,7 +298,7 @@ export class Schema {
     res_to_remove.forEach(res => {
       this.id_to_resource.delete(res.id)
       this.name_to_resource.delete(res.name)
-      let i = this.resources.findIndex(r => r.id == res.id)
+      const i = this.resources.findIndex(r => r.id == res.id)
       if (i >= 0) this.resources.splice(i, 1)
     })
     field_to_remove.forEach(res => {
@@ -307,6 +312,24 @@ export class Schema {
   public hydrateThing(thing: Thing | ThingJson, parent?: ThingParent) {
     if (thing instanceof Thing) return thing
     return new Thing(this, thing, parent)
+  }
+
+  public hydrateFile(file_raw: OpFileRaw) {
+    return new OpFile(this.api, file_raw)
+  }
+
+  async saveResource(
+    form: Partial<ResourceJson>,
+    refresh = true
+  ): Promise<ResourceID> {
+    const id = (await this.api.post('resources', form)).data.id
+    if (refresh) await this.refresh()
+    return id
+  }
+
+  async deleteResource(id: ResourceIdentifier, refresh = true) {
+    await this.api.delete(`resources/${id}`)
+    if (refresh) await this.refresh()
   }
 
   private meta: Map<ResourceName, Resource> = new Map()
@@ -343,7 +366,6 @@ export class Schema {
       return res
     }
 
-
     if (typeof id == 'string' && parseInt(id)) {
       id = parseInt(id)
     }
@@ -355,12 +377,13 @@ export class Schema {
     return this.name_to_resource.get(id)
   }
 
-  field(id: FieldID): Field | undefined {
+  field(id?: FieldID): Field | undefined {
+    if (!id) return
     if (typeof id === 'string') id = parseInt(id)
     return this.id_to_field.get(id)
   }
 
-  query<Structure extends FieldCollection = undefined>(
+  query<Structure extends FieldCollection | undefined = undefined>(
     resource_id: ResourceIdentifier
   ): Query<Structure> {
     const resource = this.resource(resource_id)
@@ -372,61 +395,6 @@ export class Schema {
 
   fields() {
     return this.resources.flatMap(res => res.fields)
-  }
-
-  private external_db_svc: SchemaService<ExternalDatabaseJson>
-  get external_db_service() {
-    if (!this.external_db_svc) {
-      this.external_db_svc = new SchemaService<ExternalDatabaseJson>(
-        this,
-        'external-dbs'
-      )
-      this.external_db_svc.list()
-    }
-    return this.external_db_svc
-  }
-  private viewer_svc: SchemaService<TableViewJson>
-  get table_viewer_service() {
-    if (!this.viewer_svc) {
-      this.viewer_svc = new SchemaService<TableViewJson>(
-        this,
-        'resource-viewers',
-        { type: 'table' }
-      )
-      this.viewer_svc.list()
-    }
-    return this.viewer_svc
-  }
-  private folder_viewer_svc: SchemaService<FolderViewJson, FolderView>
-  get folder_viewer() {
-    if (!this.folder_viewer_svc) {
-      this.folder_viewer_svc = new SchemaService<FolderViewJson, FolderView>(
-        this,
-        'field-folders',
-        {},
-        FolderViewParser
-      )
-      this.folder_viewer_svc.list()
-    }
-    return this.folder_viewer_svc
-  }
-  private cdn_svc: SchemaService<any>
-  get cdn_service() {
-    if (!this.cdn_svc) {
-      this.cdn_svc = new SchemaService<any>(this, 'cdn')
-    }
-    return this.cdn_svc
-  }
-
-  private custom_translation_scv: SchemaService<CustomTranslationJson>
-  get custom_translation_service() {
-    if (!this.custom_translation_scv) {
-      this.custom_translation_scv = new SchemaService<CustomTranslationJson>(
-        this,
-        'custom-translations'
-      )
-    }
-    return this.custom_translation_scv
   }
 
   pickTranslation(labels: { [key: string]: string }) {
@@ -470,7 +438,7 @@ export class Schema {
     this.api = api
   }
 
-  async cacheThings(q: undefined | Resource | Query) {
+  async cacheThings(q: undefined | Resource | Query): Promise<any> {
     if (!q) {
       return await Promise.all(
         this.resources.map(async x => await this.cacheThings(x))
@@ -491,92 +459,4 @@ export class Schema {
       if (chunk.length < 5000) break
     }
   }
-}
-export type Identifier = string | number
-export class SchemaService<J extends { id?: ID }, T = J, ID = Identifier> {
-  public id: number
-  public is_ready = false
-  constructor(
-    public schema: Schema,
-    public endpoint: string,
-    public data: any = {},
-    public parser: SchemaServiceParser<J, T> = SchemaServiceIdentityParser
-  ) {
-    this.id = Math.random()
-  }
-  public items: Map<ID, T> = new Map()
-  private is_loaded = false
-
-  // Load all items from this service
-  async arrayList(): Promise<T[]> {
-    return [...(await this.list()).values()]
-  }
-
-  // Load all items from this service
-  async list(): Promise<Map<ID, T>> {
-    if (!this.is_loaded) {
-      await this.refresh()
-      this.is_ready = true
-    }
-    return this.items
-  }
-
-  // Load all items from this service
-  async refresh(): Promise<Map<ID, T>> {
-    const items: J[] = (
-      await this.schema.api.get(this.endpoint, this.data_clone)
-    ).data
-    items.forEach(item => this.addOrUpdate(item))
-    this.is_loaded = true
-    return this.items
-  }
-
-  // Save a single item
-  async save(form: Partial<J>): Promise<J> {
-    const item = (
-      await this.schema.api.post(
-        this.endpoint,
-        Object.assign(this.data_clone, form)
-      )
-    ).data as J
-    reassign(form, item)
-    this.addOrUpdate(item)
-    return item
-  }
-
-  // Add an item to the item collection
-  private addOrUpdate(latest: J) {
-    let current = this.items.get(latest.id)
-
-    if (current) {
-      this.parser.updateJson(current, latest)
-    } else {
-      this.items.set(latest.id, this.parser.deserialize(this.schema, latest))
-    }
-  }
-
-  // Delete a single item
-  async delete(id: ID) {
-    await this.schema.api.delete(this.endpoint + '/' + id, this.data_clone)
-    this.items.delete(id)
-  }
-
-  get data_clone() {
-    return cloneDeep(this.data)
-  }
-}
-function reassign(oldest: any, new_version: any) {
-  for (let i in oldest) if (typeof oldest[i] != 'function') delete oldest[i]
-  for (let i in new_version) oldest[i] = new_version[i]
-}
-
-export interface SchemaServiceParser<J = any, T = J> {
-  deserialize: (s: Schema, json: J) => T
-  updateJson: (object: T, json: J) => void
-  serialize: (object: T) => J
-}
-const SchemaServiceIdentityParser: SchemaServiceParser = {
-  deserialize: (s: Schema, json) => json,
-  updateJson: (object, json) => reassign(object, json),
-  serialize: object => object,
 }
