@@ -8,7 +8,7 @@ import { Schema } from './schema'
 export type TableViewID = number
 export interface TableViewJson {
   type: 'table'
-  id?: TableViewID
+  id: TableViewID
   label: string
   resource_id: ResourceID
   columns: TableViewColumnJson[]

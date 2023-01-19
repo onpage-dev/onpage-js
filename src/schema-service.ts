@@ -15,7 +15,8 @@ export class SchemaService<
     public endpoint: string,
     public data: any = {},
     public parser: SchemaServiceParser<J, T> = SchemaServiceIdentityParser,
-    public actions?: X
+    public actions?: X,
+    public on_save?: (item: J) => any
   ) {
     this.id = Math.random()
   }
@@ -69,6 +70,7 @@ export class SchemaService<
     for (const key of this.items.keys()) {
       if (!items.find(x => x.id == key)) this.items.delete(key)
     }
+
     this.is_loaded = true
     return this.items
   }
@@ -90,7 +92,9 @@ export class SchemaService<
       reassign(form, item)
     }
     this.addOrUpdate(item)
-
+    if (this.on_save) {
+      this.on_save(item)
+    }
     this.is_loaded = true
     return item
   }

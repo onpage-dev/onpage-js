@@ -1,4 +1,6 @@
-import { Author, FieldID, ResourceID, SchemaID, ThingID } from '.'
+import { Author, FieldID, ResourceID, Schema, SchemaID, ThingID } from '.'
+import { SchemaService } from './schema-service'
+import { formData } from './utils'
 
 export type ImportConfigID = number
 export type ImportSequenceID = number
@@ -134,4 +136,43 @@ export interface ImportConfigJob {
   created_ids: ThingID[]
   deleted_ids: ThingID[]
   skipped_lines: number[]
+}
+
+export class ImportConfigsService extends SchemaService<ImportConfig> {
+  constructor(public schema: Schema) {
+    super(schema, 'import/configs')
+  }
+
+  async getFullConfig(
+    config_id: ImportConfigID
+  ): Promise<ImportConfig & { file?: File }> {
+    return (await this.schema.api.get('import/configs', { id: config_id })).data
+  }
+
+  async duplicateConfig(config_id: ImportConfigID) {
+    return await this.schema.api.post(
+      `import/configs/${config_id}/duplicate`,
+      {}
+    )
+  }
+
+  async getDynamicModel(
+    id: ImportConfigID,
+    file?: File
+  ): Promise<ImportConfig & { file?: File }> {
+    return (
+      await this.schema.api.post(
+        'import/configs/update-model',
+        formData({
+          id,
+          file,
+        })
+      )
+    ).data
+  }
+
+  async getJobs(config_id: ImportConfigID): Promise<ImportConfigJob[]> {
+    return (await this.schema.api.get(`.S/import/configs/${config_id}/jobs`))
+      .data
+  }
 }

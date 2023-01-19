@@ -11,6 +11,7 @@ export const FIELD_VISIBILITY_TYPES = ['private', 'public'] as const
 export type FieldVisibilityType = typeof FIELD_VISIBILITY_TYPES[number]
 export interface FieldFolder {
   id: FieldFolderID
+  resource_id: ResourceID
   name?: string
   label: string
   labels: { [key: string]: string }

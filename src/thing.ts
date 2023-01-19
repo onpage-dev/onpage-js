@@ -9,7 +9,7 @@ import {
   isObject,
   isString,
   isSymbol,
-  uniqBy
+  uniqBy,
 } from 'lodash'
 import { stripHtml } from 'string-strip-html'
 import { DataWriter } from './data-writer'
@@ -17,7 +17,7 @@ import { Field, FieldFolderID, FieldID, FieldIdentifier } from './field'
 import { OpFile, OpFileRaw } from './file'
 import { LocalApi } from './local-api'
 import { FieldCollection } from './misc'
-import { Resource, ResourceIdentifier } from './resource'
+import { Resource, ResourceID, ResourceIdentifier } from './resource'
 import { Schema, ThingJson } from './schema'
 import { ThingEditor } from './thing-editor'
 export type ThingID = number
@@ -37,7 +37,7 @@ export type ThingValueForm =
   | number
   | [number, number]
   | [number, number, number]
-  | { token: string, name: string }
+  | { token: string; name: string }
 
 export interface ThingFullValue<T = ThingValue> {
   lang?: string
@@ -48,6 +48,7 @@ export interface ThingSaveRequest {
   id?: ThingID
   thing_id?: ThingID // required for drafts
   resource?: ResourceIdentifier
+  resource_id?: ResourceID
   default_folder_id?: FieldFolderID
   ignore_folder?: boolean
   data: {
@@ -268,19 +269,19 @@ export class Thing<Structure extends FieldCollection | undefined = undefined> {
     lang?: string | string[]
   ):
     | (Structure extends undefined
-      ? TV
-      : F extends Field
-      ? TV
-      : F extends keyof Structure
-      ? Structure[F]
-      : TV)
+        ? TV
+        : F extends Field
+        ? TV
+        : F extends keyof Structure
+        ? Structure[F]
+        : TV)
     | undefined {
     return this.values<TV, F>(field_name, lang)[0]
   }
   file<
     F extends Structure extends undefined
-    ? string
-    : KeysOfType<Structure, OpFile>
+      ? string
+      : KeysOfType<Structure, OpFile>
   >(field_name: F | Field, lang?: string): OpFile | undefined {
     const field = this.resolveField(field_name)
     if (!field?.isMedia()) return undefined
@@ -288,8 +289,8 @@ export class Thing<Structure extends FieldCollection | undefined = undefined> {
   }
   files<
     F extends Structure extends undefined
-    ? string
-    : KeysOfType<Structure, OpFile>
+      ? string
+      : KeysOfType<Structure, OpFile>
   >(field_name: F | Field, lang?: string): OpFile[] {
     const field = this.resolveField(field_name)
     if (!field?.isMedia()) return []
@@ -543,9 +544,9 @@ function formatNumber(
       i.substr(j).replace(/(\d{3})(?=\d)/g, '$1' + thousands) +
       (decimalCount
         ? decimal +
-        Math.abs(+amount - +i)
-          .toFixed(decimalCount)
-          .slice(2)
+          Math.abs(+amount - +i)
+            .toFixed(decimalCount)
+            .slice(2)
         : '')
     )
   } catch (e) {

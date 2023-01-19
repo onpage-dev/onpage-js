@@ -4,7 +4,6 @@ import { OpFile } from './file'
 import { expect } from 'chai'
 import { Schema } from './schema'
 import { Thing } from './thing'
-import { first } from 'lodash'
 
 // let api: Api = null
 let schema: Schema

@@ -11,7 +11,11 @@ export interface LegacyTemplate {
   is_pathless: boolean
   fonts?: any
   version?: number
+  data?: any
+  __removing?: boolean
+  __duplicating?: boolean
   archived_at?: string
+  updated_at: string
 }
 export interface LoadedLegacyTemplate extends LegacyTemplate {
   data?: {
