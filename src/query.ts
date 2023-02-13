@@ -99,22 +99,22 @@ export interface OrderBy {
 }
 export type QueryType =
   | {
-    type: 'root'
-    resource: Resource
-    related_to?: RelatedTo
-    options: QueryOptions
-    langs?: string[]
-  }
+      type: 'root'
+      resource: Resource
+      related_to?: RelatedTo
+      options: QueryOptions
+      langs?: string[]
+    }
   | {
-    type: 'relation'
-    field: Field
-    resource: Resource
-    as: string
-  }
+      type: 'relation'
+      field: Field
+      resource: Resource
+      as: string
+    }
   | {
-    type: 'filter'
-    resource: Resource
-  }
+      type: 'filter'
+      resource: Resource
+    }
 
 export class FilterHelper {
   protected filters: QueryFilter[] = []
@@ -311,8 +311,12 @@ export class Query<
     return clone
   }
 
-  setFields(fields: FieldQuery[]): Query {
-    this.fields = clone(fields)
+  setFields(fields: FieldQuery[], append = false): Query {
+    if (append) {
+      this.fields = this.fields.concat(clone(fields))
+    } else {
+      this.fields = clone(fields)
+    }
     return this
   }
   loadSlotFields(): Query {
@@ -361,7 +365,7 @@ export class Query<
 
   build(ret?: ReturnType): ThingsRequestBody {
     const fields: any[] = [...this.fields]
-    this.relations.forEach((q) => {
+    this.relations.forEach(q => {
       fields.push(q.build())
     })
     const data: ThingsRequestBody = {
@@ -487,10 +491,39 @@ export class Query<
     return this
   }
   findSubquery(path: string | string[]): Query | undefined {
-    if (typeof path == 'string') path = [path]
+    if (typeof path == 'string') path = path.split('.')
     const subquery = this.relations.get(path[0])
     if (!subquery || path.length == 1) return subquery
     return subquery.findSubquery(path.slice(1))
+  }
+  filterRelation(
+    path: string | string[],
+    callback: (subquery: Query) => any | void
+  ): this {
+    const sq = this.findSubquery(path)
+    if (!sq) {
+      throw new Error(
+        'Cannot find relation to filter: ' +
+          (isArray(path) ? path.join('.') : path)
+      )
+    }
+    callback(sq)
+    return this
+  }
+  loadRelationFields(
+    path: string | string,
+    fields: FieldQuery[],
+    append = false
+  ): this {
+    const sq = this.findSubquery(path)
+    if (!sq) {
+      throw new Error(
+        'Cannot find relation to filter: ' +
+          (isArray(path) ? path.join('.') : path)
+      )
+    }
+    sq.setFields(fields, append)
+    return this
   }
   setRelation(field: FieldIdentifier | Field, as: string): Query {
     if (!this.relations.has(as)) {
@@ -532,7 +565,7 @@ export class Query<
       )
     }
     for (const i in options) {
-       (this.type.options as any)[i] = (options as any)[i]
+      this.type.options[i as keyof QueryOptions] = (options as any)[i]
     }
     return this
   }
@@ -557,8 +590,6 @@ export class Query<
 export interface Pagination<T = any> {
   current_page: number
   last_page: number
-  from: number
-  to: number
   per_page: number
   total: number
   data: T[]

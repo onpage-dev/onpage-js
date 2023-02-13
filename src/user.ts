@@ -17,7 +17,9 @@ export interface UserInfo {
 }
 export interface FullUserInfo extends UserInfo {
   companies: FullCompanyInfo[]
-  roles: { [key: number]: RoleInterface }
+  roles: { [key: number]: RoleInterface } | RoleInterface[]
   auths: { [key: number]: { [key: string]: number } }
   opts: { [key: string]: any }
+  ip_whitelist?: any[]
+  admins?: any[]
 }

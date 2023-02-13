@@ -20,16 +20,15 @@ export interface FieldFolder {
 }
 
 export interface FieldFolderJson {
-  id: FieldFolderID,
-  name: string,
-  resource_id: ResourceID,
-  order: number,
+  id: FieldFolderID
+  name: string
+  resource_id: ResourceID
+  order: number
   labels: {
     [key: string]: string
-  },
-  type: "folder",
-  form_fields: FieldID[
-  ],
+  }
+  type: 'folder'
+  form_fields: FieldID[]
   arrow_fields: FieldID[]
 }
 
@@ -235,11 +234,8 @@ export class Field {
     ).data
   }
 
-  async delete(
-    id: FieldIdentifier,
-    refresh = true
-  ) {
-    (await this.resource().deleteField(this.id))
+  async delete(id: FieldIdentifier, refresh = true) {
+    await this.resource().deleteField(this.id)
     if (refresh) await this.schema().refresh()
   }
 

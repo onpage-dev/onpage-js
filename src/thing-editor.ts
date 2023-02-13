@@ -15,7 +15,7 @@ export class ThingEditor {
   constructor(
     public updater: DataWriter,
     private id?: ThingID,
-    public langs: string[] = []
+    public langs?: string[]
   ) {}
 
   get resource() {
@@ -46,7 +46,8 @@ export class ThingEditor {
     if (!field) throw new FieldNotFound(field_name)
 
     if (field.is_translatable && !lang) {
-      lang = this.langs[0] ?? this.updater.schema().lang
+      lang = this.langs ? this.langs[0] : undefined
+      if (!lang) lang = this.updater.schema().lang
     }
 
     if (append) {
@@ -123,7 +124,7 @@ export class ThingEditor {
 
 export interface ThingEditorForm {
   id?: ThingID
-  langs: string[]
+  langs?: string[]
   fields: {
     [key: string]: any[]
   }

@@ -16,6 +16,9 @@ export interface ApiToken {
   updated_at?: string
   stats_last_usage?: string
   stats_first_usage?: string
+  auth_enabled?: boolean
+  auth_user?: string
+  auth_pass?: string
   stats_usage_24h?: number
   stats_usage_week?: number
   filters: GroupClause[]

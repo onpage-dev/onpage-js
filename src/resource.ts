@@ -5,6 +5,7 @@ import {
   isNaN,
   isNumber,
   isString,
+  isSymbol,
   uniqBy,
 } from 'lodash'
 import { DataWriter } from './data-writer'
@@ -391,5 +392,13 @@ export class Resource<
 
   writer(): DataWriter {
     return new DataWriter(this)
+  }
+
+  resolveField(
+    field_name: Field | FieldIdentifier | symbol
+  ): Field | undefined {
+    if (isSymbol(field_name)) return
+    if (field_name instanceof Field) return field_name
+    return this.field(field_name)
   }
 }

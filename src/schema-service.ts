@@ -38,12 +38,17 @@ export class SchemaService<
 
   // Load all items from this service
   async list(): Promise<Map<ID, T>> {
-    this.clearDebounce()
-    if (!this.is_loaded) {
-      await this.refresh()
+    try {
+      this.clearDebounce()
+      if (!this.is_loaded) {
+        await this.refresh()
+      }
+    } catch (error) {
+      console.log(error)
+    } finally {
       this.is_ready = true
+      return this.items
     }
-    return this.items
   }
 
   // Load all items from this service
@@ -63,16 +68,21 @@ export class SchemaService<
 
   // Load all items from this service
   async refresh(): Promise<Map<ID, T>> {
-    const items: J[] = (
-      await this.schema.api.get(this.endpoint, this.data_clone)
-    ).data
-    items.forEach(item => this.addOrUpdate(item))
-    for (const key of this.items.keys()) {
-      if (!items.find(x => x.id == key)) this.items.delete(key)
-    }
+    try {
+      const items: J[] = (
+        await this.schema.api.get(this.endpoint, this.data_clone)
+      ).data
+      items.forEach(item => this.addOrUpdate(item))
 
-    this.is_loaded = true
-    return this.items
+      for (const key of this.items.keys()) {
+        if (!items.find(x => x.id == key)) this.items.delete(key)
+      }
+    } catch (error) {
+      console.log(error)
+    } finally {
+      this.is_loaded = true
+      return this.items
+    }
   }
 
   // Save a single item

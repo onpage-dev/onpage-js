@@ -127,6 +127,10 @@ describe('NESTED RELATIONS', () => {
     expect(schema.api.getRequestCount()).to.equal(1)
     expect(prods?.length).to.equal(23)
     expect(arts?.length).to.equal(76)
+
+    expect(cap?.values('argomenti.intestazione')).to.deep.equal([
+      'Profili alluminio',
+    ])
   })
 })
 
@@ -156,10 +160,41 @@ describe('NESTED RELATIONS ONDEMAND', () => {
     const prods_sync = cap?.relSync('argomenti.prodotti')
     expect(prods_sync).to.have.members(prods!)
   })
+
+  it('Verify relation filtering', async () => {
+    schema.api.resetRequestCount()
+    const cap = await schema
+      .query('capitoli')
+      .with('argomenti.prodotti.articoli')
+      .filterRelation('argomenti.prodotti', q => q.where('_id', 236918))
+      .loadRelationFields('argomenti.prodotti.articoli', ['codice', 'id'])
+      .first()
+    expect(schema.api.getRequestCount()).to.equal(1)
+
+    schema.api.resetRequestCount()
+
+    const art_relsync = cap?.relSync(['argomenti', 'prodotti', 'articoli'])
+    expect(schema.api.getRequestCount()).to.equal(0)
+    expect(art_relsync?.length).to.equal(7)
+
+    const arts_await = await cap?.rel('argomenti.prodotti.articoli')
+    expect(schema.api.getRequestCount()).to.equal(0)
+    expect(arts_await?.length).to.equal(7)
+
+    const prods = await cap?.rel('argomenti.prodotti')
+    expect(schema.api.getRequestCount()).to.equal(0)
+    expect(prods?.length).to.equal(1)
+
+    const loaded_values = cap?.values('argomenti.prodotti.articoli.codice')
+    const non_loaded = cap?.values('argomenti.prodotti.articoli.idprodotto')
+    expect(schema.api.getRequestCount()).to.equal(0)
+
+    expect(loaded_values?.length).to.equal(7)
+    expect(non_loaded?.length).to.equal(0)
+  })
 })
 
 describe('WRITER TEST', () => {
-
   it('Write First Thing', async () => {
     const res_cap = schema.resource('capitoli')
 
@@ -167,7 +202,10 @@ describe('WRITER TEST', () => {
 
     const indice = cap!.val('indice')
 
-    const saved = await cap!.editor().set('indice', Number(indice) + 1).save()
+    const saved = await cap!
+      .editor()
+      .set('indice', Number(indice) + 1)
+      .save()
 
     expect(saved).deep.equal([cap!.id])
 
@@ -178,7 +216,6 @@ describe('WRITER TEST', () => {
   })
 
   it('Create Two Things', async () => {
-
     const res_cap = schema.resource('capitoli')
 
     const count = await res_cap!.query().count()
@@ -195,12 +232,14 @@ describe('WRITER TEST', () => {
   })
 
   it('Delete Two Things', async () => {
-
     const res_cap = schema.resource('capitoli')
 
     const to_delete = await res_cap!.query().where('indice', '<', '0').get()
 
-    const deleted_ids = await res_cap!.query().where('indice', '<', '0').delete()
+    const deleted_ids = await res_cap!
+      .query()
+      .where('indice', '<', '0')
+      .delete()
 
     expect(deleted_ids).deep.equal(to_delete.map(x => x.id))
 

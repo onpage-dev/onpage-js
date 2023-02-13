@@ -9,6 +9,7 @@ import {
   isObject,
   isString,
   isSymbol,
+  uniq,
   uniqBy,
 } from 'lodash'
 import { stripHtml } from 'string-strip-html'
@@ -235,6 +236,19 @@ export class Thing<Structure extends FieldCollection | undefined = undefined> {
     }
 
     if (isSymbol(field_name)) return []
+    if (isString(field_name)) {
+      const path = field_name.split('.')
+      if (path.length > 1) {
+        const rel_path = path.slice(0, -1)
+        const field_name = path.slice(-1)[0]
+        const values = this.relSync(rel_path)?.flatMap(r =>
+          r.values(field_name)
+        )
+        return uniqBy(values, v =>
+          v instanceof OpFile ? v.token + v.name : JSON.stringify(v)
+        ) as any[]
+      }
+    }
     const field = this.resolveField(field_name)
     if (!field) return []
 
@@ -300,12 +314,7 @@ export class Thing<Structure extends FieldCollection | undefined = undefined> {
   resolveField(
     field_name: Field | FieldIdentifier | symbol
   ): Field | undefined {
-    if (isSymbol(field_name)) return
-    if (field_name instanceof Field) return field_name
-    const res = this.resource()
-    if (!res) return
-    const field = res.field(field_name)
-    return field
+    return this.resource()?.resolveField(field_name)
   }
 
   resource(): Resource {

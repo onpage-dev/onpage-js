@@ -1,5 +1,6 @@
 import { Field, FieldFolder, Resource, ResourceID, SchemaID, ViewID } from '.'
-import { CompanyID } from './company'
+import { CompanyID, CompanyInfo } from './company'
+import { DMSettingsID, ResourceSettings } from './dm-settings'
 import { UserInfo } from './user'
 
 export type RoleInterfaceID = number
@@ -124,6 +125,7 @@ export const LINK_PERMISSION_KEYS = [
   'import_configs',
   'import_sequences',
   'resource_viewers',
+  'dm_settings',
 ] as const
 export type LinkPermissionKey = typeof LINK_PERMISSION_KEYS[number]
 export const LINK_CUSTOM_PERMISSION_KEYS = [
@@ -143,6 +145,7 @@ export const LINK_CUSTOM_PERMISSION_KEYS = [
   'custom_import_sequences',
   'custom_import_configs',
   'custom_resource_viewers',
+  'custom_dm_settings',
 ] as const
 export type LinkCustomPermissionKey = typeof LINK_CUSTOM_PERMISSION_KEYS[number]
 export const ROLE_PERMISSION_KEYS = [
@@ -205,11 +208,16 @@ export interface RolePermissions {
   custom_import_sequences: Std<EditDeleteShowPermissions>
   resource_viewers: LinksPermissions
   custom_resource_viewers: Std<EditDeleteShowPermissions>
+  dm_settings: LinksPermissions
+  custom_dm_settings: Std<EditDeleteShowPermissions>
 
   // undefined means all langs
   readable_langs?: string[]
   // undefined means all langs
   writable_langs?: string[]
+}
+export interface RoleSettings {
+  resource_settings: { [key: ResourceID]: ResourceSettings }
 }
 
 export interface RoleInterface {
@@ -224,8 +232,12 @@ export interface RoleInterface {
   auth: RoleAuth
   limit_fs: boolean
   permissions: RolePermissions
+  settings: RoleSettings //readonly
+  dm_settings_id?: DMSettingsID
   created_at: string
   updated_at: string
+  company?: CompanyInfo
+  schema?: CompanyInfo
 }
 
 export class RoleSectionPermissionsInstance {
@@ -341,12 +353,16 @@ export class RolePermissionsInstance {
     return Boolean(this.json.fields.sort)
   }
   // Field Specific
-  canEditFieldValue(field: Field, is_creation = false): boolean {
-    if (!this.canEditThings(field.resource()) && !is_creation)
-      return Boolean(false)
+  canEditFieldValue(field: Field, lang?: string, is_creation = false): boolean {
+    if (lang && field.is_translatable && this.json.writable_langs) {
+      if (!this.json.writable_langs.includes(lang)) {
+        return false
+      }
+    }
+    if (!this.canEditThings(field.resource()) && !is_creation) return false
     if (this.json.custom_fields[field.id])
       return Boolean(this.json.custom_fields[field.id].edit_value)
-    return Boolean(true)
+    return true
   }
   canEditField(field: Field): boolean {
     if (this.json.custom_fields[field.id])

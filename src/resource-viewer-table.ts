@@ -5,6 +5,7 @@ import { OrderBy } from './query'
 import { Resource, ResourceID } from './resource'
 import { Schema } from './schema'
 
+export const DEFAULT_MULTI_VALUE_JOINER = ', '
 export type TableViewID = number
 export interface TableViewJson {
   type: 'table'
@@ -15,6 +16,7 @@ export interface TableViewJson {
   is_private?: boolean
   order_by?: OrderBy
   langs?: string[]
+  multi_value_joiner?: string
 }
 
 export type TableConfigColumnID = string
@@ -54,6 +56,7 @@ export class TableConfig {
   public is_private?: boolean
   public order_by?: OrderBy
   public langs?: string[]
+  public multi_value_joiner?: string
 
   constructor(public schema: Schema, config: TableViewJson) {
     this.resource = schema.resource(config.resource_id)!
@@ -72,6 +75,7 @@ export class TableConfig {
     this.order_by = clone(config.order_by)
     this.langs = clone(config.langs)
     this.is_private = config.is_private
+    this.multi_value_joiner = config.multi_value_joiner
   }
 
   deleteColumn(col: TableColumn) {
@@ -88,6 +92,7 @@ export class TableConfig {
       order_by: clone(this.order_by),
       langs: clone(this.langs),
       is_private: this.is_private,
+      multi_value_joiner: this.multi_value_joiner,
       resource_id: this.resource.id,
     }
   }

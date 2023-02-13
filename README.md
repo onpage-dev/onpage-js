@@ -74,12 +74,23 @@ let valid_products = schema
 
 ### Get thing values
 
+You can use the `val()` or `file()` method to retrieve a single value from the field:
 ```ts
 let cat = await schema.query('categories').first()
 console.log(cat.val('name'))
 console.log(cat.val('dimension'))
 console.log(cat.val('description', 'fr')) // you can specify a language
+
+// For multi-value fields, you can retrieve all values using the `values()` method:
+console.log(cat.values('bullet_points')) // [ "First value", "Second value" ]
 ```
+
+These functions also work on related items:
+```ts
+let cat = await schema.query('categories').with('products.colors').first()
+console.log(cat.values('products.colors.name')) // ["green", "red", "blue"]
+```
+
 
 #### Files
 
@@ -87,9 +98,9 @@ For `image` and `file` fields, the returned value will be an instance of `OpFile
 To get a file or image url use the `.link()` function. The link will point to the original file.
 
 ```ts
-product.val('specsheet').name // icecream-spec.pdf
-product.val('specsheet').token // R417C0YAM90RF
-product.val('specsheet').link() // https://acme-inc.onpage.it/api/storage/R417C0YAM90RF?name=icecream-spec.pdf
+product.file('specsheet').name // icecream-spec.pdf
+product.file('specsheet').token // R417C0YAM90RF
+product.file('specsheet').link() // https://acme-inc.onpage.it/api/storage/R417C0YAM90RF?name=icecream-spec.pdf
 ```
 
 To turn images into a thumbnail add an array of options as shown below:
@@ -115,7 +126,11 @@ prod.val('cover_image').link({'x' : 200, 'ext' : 'png'})
 
 ```ts
 let cat = await schema.query('categories').first()
+
+// This will do 1 API call to download the subcategories
 let subcategories = await cat.rel('subcategories')
+
+// Now you can access the subcategories
 subcategories.forEach(subcategory => {
   console.log(subcategory.val('name'))
 })
@@ -125,10 +140,19 @@ let products = await cat.rel('subcategories.products')
 ```
 
 ### Preload thing relations
+The previous example will execute an API call every time you call the `rel()` method.
+Usually it is a good idea to preload relations so that only one API call is done, resulting in faster execution.
 
 ```ts
 let cat = await schema.query('categories').with('subcategories').first()
+
+// This will not execute any API call
 let subcategories = await cat.rel('subcategories')
+
+// If you don't want to use await, you can use relSync() method to retrieve loaded items
+// NOTE: This will only work if the relation has been preloaded
+let subcategories = cat.relSync('subcategories')
+
 subcategories.forEach(subcategory => {
   console.log(subcategory.val('name'))
 })
@@ -138,8 +162,41 @@ let cat = await schema
   .query('categories')
   .with('subcategories.articles.colors')
   .first()
+
+// Or many relations at once:
+let product = await schema
+  .query('products')
+  .with([
+    'category',
+    'variants.size',
+    'variants.color',
+  ])
+  .first()
 ```
 
+
+### Filter related items
+```ts
+// If you need to filter the related items you want to download, you can do this:
+const category = schema.query('categories')
+    .with('subcategories.articles.colors')
+    .filterRelation('subcategories.articles', q => {
+        q.where('is_online', true);
+    })
+    .first();
+
+// Only online articles will be downloaded
+const articles = category.relSync('subcategories.articles')
+```
+
+### Set relation related items
+```ts
+// You can also limit the fields on a related item
+const products = schema.query('products')
+  .with([ 'colors' ])
+  .loadRelationFields('colors', ['name', 'image']) // only load 2 fields for the "color" relation
+  .all();
+```
 
 # Creating and updating things
 

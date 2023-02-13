@@ -72,6 +72,7 @@ export interface ImportConfigForm {
   disable_thing_update?: boolean
   ignore_missing_columns?: boolean
   restore_deleted_things?: boolean
+  allow_multiple_primary_keys?: boolean
   delete?: boolean
 }
 
@@ -92,6 +93,7 @@ export interface ImportConfig {
     disable_thing_update?: boolean
     ignore_missing_columns?: boolean
     restore_deleted_things?: boolean
+    allow_multiple_primary_keys?: boolean
     delete?: boolean
     columns: ImportConfigColumn[]
   }
