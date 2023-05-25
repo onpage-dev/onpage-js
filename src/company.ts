@@ -24,6 +24,7 @@ export interface CompanyInfo {
     logo_dark?: OpFileRaw
     partner_logo_dark?: OpFileRaw
   }
+  created_at?: string
 }
 
 export interface FullCompanyInfo extends CompanyInfo {

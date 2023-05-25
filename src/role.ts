@@ -1,7 +1,11 @@
-import { Field, FieldFolder, Resource, ResourceID, SchemaID, ViewID } from '.'
+import { cloneDeep } from 'lodash'
+import { Field, FieldFolder, Resource, ResourceID } from '.'
 import { CompanyID, CompanyInfo } from './company'
 import { DMSettingsID, ResourceSettings } from './dm-settings'
-import { UserInfo } from './user'
+import { Schema, SchemaID } from './schema'
+import { SchemaService } from './schema-service'
+import { UserID, UserInfo } from './user'
+import { ViewID } from './view'
 
 export type RoleInterfaceID = number
 export const ROLE_AUTH_OPTIONS = [
@@ -159,6 +163,8 @@ export type RolePermissionKey = keyof RolePermissions
 
 export interface RolePermissions {
   can_edit_roles: boolean
+  can_manage_drafts: boolean
+  can_create_drafts: boolean
 
   resources: StandardPermissions
   custom_resources: Std<EditDeletePermissions>
@@ -284,6 +290,14 @@ export class RolePermissionsInstance {
     return Boolean(this.json.can_edit_roles)
   }
 
+  // Drafts
+  canManageDrafts() {
+    return Boolean(this.json.can_manage_drafts)
+  }
+  canCreateDrafts() {
+    return Boolean(this.json.can_create_drafts)
+  }
+
   // Resources
   canAddResources(): boolean {
     return Boolean(this.json.resources.add)
@@ -318,6 +332,15 @@ export class RolePermissionsInstance {
   canEditThings(res?: Resource): boolean {
     if (res && this.json.resource_things[res.id])
       return Boolean(this.json.resource_things[res.id].edit)
+    return Boolean(this.json.things.edit)
+  }
+  canEditAnyThing(): boolean {
+    if (Object.keys(this.json.resource_things).length) {
+      const can_edit = Object.keys(this.json.resource_things).find(
+        th_id => this.json.resource_things[th_id].edit
+      )
+      if (can_edit) return Boolean(true)
+    }
     return Boolean(this.json.things.edit)
   }
   canDeleteThings(res?: Resource): boolean {
@@ -419,14 +442,36 @@ export class RolePermissionsInstance {
   canShowTranslations() {
     return Boolean(this.json.translator.is_active)
   }
-  canEditTranslations() {
+  canEditTranslations(lang?: string) {
+    if (!this.json.translator.can_edit || !this.canShowTranslations()) {
+      return false
+    }
+
+    if (lang && this.json.writable_langs) {
+      return this.json.writable_langs.includes(lang)
+    }
     return Boolean(this.json.translator.can_edit)
   }
+  canShowTranslatorLang(lang?: string) {
+    if (!this.canShowTranslations()) return false
+
+    if (lang && this.json.readable_langs) {
+      return this.json.readable_langs.includes(lang)
+    }
+    return this.canShowTranslations()
+  }
   canEditTranslatorLangs() {
-    return Boolean(this.json.translator.can_edit_langs)
+    return Boolean(
+      this.canShowTranslations() &&
+        this.json.translator.can_edit_langs &&
+        !this.json.readable_langs &&
+        !this.json.writable_langs
+    )
   }
   canUploadTranslations() {
-    return Boolean(this.json.translator.can_upload)
+    return (
+      this.canShowTranslations() && Boolean(this.json.translator.can_upload)
+    )
   }
 
   // Sections
@@ -463,6 +508,8 @@ export function allPermissions(): RolePermissionsInstance {
   )
   DM_CUSTOM_PERMISSION_KEYS.forEach(permission => (res[permission] = {}))
   res.can_edit_roles = true
+  res.can_create_drafts = true
+  res.can_manage_drafts = true
   res.translator = {
     is_active: true,
     can_upload: true,
@@ -480,5 +527,48 @@ export function allPermissions(): RolePermissionsInstance {
   )
   LINK_CUSTOM_PERMISSION_KEYS.forEach(permission => (res[permission] = {}))
 
-  return new RolePermissionsInstance(res as RolePermissions)
+  return new RolePermissionsInstance(cloneDeep(res as RolePermissions))
+}
+
+export class RoleService extends SchemaService<RoleInterface> {
+  constructor(public schema: Schema) {
+    super(schema, 'roles')
+  }
+
+  async addUserToRole(role_id: RoleInterfaceID, user_id: UserID) {
+    try {
+      await this.schema.api.post(`${this.endpoint}/users`, { role_id, user_id })
+      await this.refresh()
+    } catch (error) {
+      console.error('error while adding user to role', error)
+    }
+  }
+  async resendInvite(role_id: RoleInterfaceID, user_id: UserID, email: string) {
+    try {
+      const payload = {
+        role_id,
+        user_id,
+        email,
+        resend_invite: true,
+      }
+
+      await this.schema.api.post(`${this.endpoint}/users`, payload)
+      await this.refresh()
+    } catch (error) {
+      console.error('error while sendind invite', error)
+    }
+  }
+  async removeUserFromRole(role_id: RoleInterfaceID, user_id: UserID) {
+    try {
+      const payload = {
+        role_id,
+        user_id,
+      }
+
+      await this.schema.api.delete(`${this.endpoint}/users`, payload)
+      await this.refresh()
+    } catch (error) {
+      console.error('error while removing user', error)
+    }
+  }
 }

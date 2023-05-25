@@ -62,22 +62,29 @@ export class ThingEditor {
 
   setRel(field_name: string, values: ThingID[]) {
     this.relations[field_name] = values
+    return this
   }
 
   toArray(): ThingEditorForm {
     const fields: { [key: string]: any[] } = {}
     each(this.fields, (values, field) => {
       each(values, (values, lang) => {
-        values.forEach(value => {
-          let form
-          if (value instanceof OpFile) {
-            form = { token: value.token, name: value.name }
-          } else {
-            form = value
-          }
+        if (values.length) {
+          values.forEach(value => {
+            let form
+            if (value instanceof OpFile) {
+              form = { token: value.token, name: value.name }
+            } else {
+              form = value
+            }
+            if (!fields[field]) fields[field] = []
+            fields[field].push({ lang, value: form })
+          })
+        } else {
+          // Empty value in case ThingValues = []
           if (!fields[field]) fields[field] = []
-          fields[field].push({ lang, value: form })
-        })
+          fields[field].push({ lang, value: undefined })
+        }
       })
     })
     return {

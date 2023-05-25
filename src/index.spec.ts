@@ -4,13 +4,15 @@ import { OpFile } from './file'
 import { expect } from 'chai'
 import { Schema } from './schema'
 import { Thing } from './thing'
+import dotenv from 'dotenv'
+dotenv.config()
 
 // let api: Api = null
 let schema: Schema
 
 describe('SETUP', async () => {
   it('Schema request', async () => {
-    const api = new Api('app', 'N63tILw5vdgnutXs')
+    const api = new Api('app', process.env['TEST_TOKEN'] ?? '')
     schema = await api.loadSchema()
     expect(api.getRequestCount()).to.equal(1)
     expect(schema).to.be.instanceOf(Schema)

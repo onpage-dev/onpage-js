@@ -4,6 +4,7 @@ import mitt, { Emitter } from 'mitt'
 import {
   Api,
   Author,
+  FieldType,
   FieldVisibilityType,
   OpFile,
   OpFileRaw,
@@ -34,12 +35,13 @@ export interface FieldJson extends JsonBase {
   unit?: string
   is_multiple: boolean
   is_unique?: boolean
+  is_meta?: boolean
   order: number
   rel_res_id?: number
   rel_field_id?: number
   rel_type?: 'src' | 'dst' | 'sync'
   opts: { [key: string]: any }
-  type: string
+  type: FieldType
   name: string
   resource_id: number
   is_label?: boolean
@@ -423,7 +425,7 @@ export class Schema {
     storage = storage ?? LocalStorage
     const json = storage.get(`${name}_schema`) as SchemaJson
     const api = new LocalApi(json)
-    const things = storage.get(`${name}_schema`) as ThingJson[]
+    const things = storage.get(`${name}_things`) as ThingJson[]
     things.forEach(t => {
       api.schema.cacheThing(t)
     })
@@ -438,7 +440,7 @@ export class Schema {
     this.api = api
   }
 
-  async cacheThings(q: undefined | Resource | Query): Promise<any> {
+  async cacheThings(q?: Resource | Query): Promise<any> {
     if (!q) {
       return await Promise.all(
         this.resources.map(async x => await this.cacheThings(x))

@@ -2,8 +2,9 @@ import {
   ApiTokenValue,
   FieldID,
   FtpConfigID,
-  LegacyTemplateID, SchemaID,
-  ViewID
+  LegacyTemplateID,
+  SchemaID,
+  ViewID,
 } from '.'
 
 export type PdfGeneratorID = number
@@ -17,6 +18,7 @@ export interface PdfGenerator {
   api_token: ApiTokenValue
   view_id?: ViewID
   generation_time: string
+  // generation_times: string[] TODO: wait backend implementation
   field_id: FieldID
   created_at?: string
   updated_at?: string

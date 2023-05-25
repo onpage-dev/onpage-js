@@ -14,9 +14,12 @@ export interface ImportConfigColumn {
   clean_with_regex?: string
   append_mode?: boolean
   ignore_empty_value_mode?: boolean
+  ignore_if_thing_exists?: boolean
   create_new_options?: boolean
   skip_empty_lines?: boolean
   ignore_missing_relations?: boolean
+  create_missing_relations?: boolean
+  case_sensitive_match?: boolean
   field_id?: FieldID
   lang?: string
   match_field_id?: FieldID
@@ -36,6 +39,7 @@ export interface ImportConfigColumn {
 export type ImportConfigSource =
   | ImportConfigSourceDatabase
   | ImportConfigSourceFtp
+  | ImportConfigSourceHttp
 export interface ImportConfigSourceDatabase {
   type: 'database'
   database_id: number
@@ -48,6 +52,20 @@ export interface ImportConfigSourceFtp {
   path?: string
   wildcard?: boolean
   match_policy?: 'latest'
+}
+
+export const IMPORT_CONFIG_SOURCE_HTTP_FORMATS = [
+  'csv',
+  'excel',
+  'json',
+] as const
+export type ImportConfigSourceHttpFormat =
+  (typeof IMPORT_CONFIG_SOURCE_HTTP_FORMATS)[number]
+export interface ImportConfigSourceHttp {
+  type: 'http'
+  format: ImportConfigSourceHttpFormat
+  url: string
+  headers?: Record<string, string>
 }
 
 export interface ImportSequence {
@@ -161,7 +179,7 @@ export class ImportConfigsService extends SchemaService<ImportConfig> {
   async getDynamicModel(
     id: ImportConfigID,
     file?: File
-  ): Promise<ImportConfig & { file?: File }> {
+  ): Promise<Pick<ImportConfig, 'config' | 'file_token' | 'last_upload'>> {
     return (
       await this.schema.api.post(
         'import/configs/update-model',
@@ -171,6 +189,10 @@ export class ImportConfigsService extends SchemaService<ImportConfig> {
         })
       )
     ).data
+  }
+
+  importWithConfig(config_token: string, form: FormData) {
+    return this.schema.api.post(`.s/import/with-config/${config_token}`, form)
   }
 
   async getJobs(config_id: ImportConfigID): Promise<ImportConfigJob[]> {

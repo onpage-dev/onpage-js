@@ -17,80 +17,140 @@ import {
   FieldID,
   FieldIdentifier,
 } from './field'
-import { FilterLabel } from './filters'
+import { FilterID, FilterLabel } from './filters'
 import { LegacyTemplate } from './legacy-template'
 import { FieldCollection } from './misc'
 import { FieldQuery, Query, QueryFilter, SimpleFieldClause } from './query'
 import { PivotViewJson } from './resource-viewer-pivot'
 import { Robot } from './robot'
 import { FieldJson, ResourceJson, Schema } from './schema'
+import { SchemaService } from './schema-service'
 import { Thing, ThingID } from './thing'
 export type ResourceID = number
 export type ResourceName = string
 export type ResourceIdentifier = ResourceID | ResourceName
 
 export type ResourceSlotID = number
-export interface ResourceSlot {
+export type ResourceSlotType =
+  | 'title'
+  | 'subtitle'
+  | 'info'
+  | 'filters'
+  | 'cover'
+export interface ResourceSlotBase {
   id: ResourceSlotID
+  resource_id: ResourceID
+  labels: { [key: string]: string }
+  opts: {
+    hide_from_add_existing?: boolean
+    hide_from_column?: boolean
+  }
+}
+
+export type ResourceSlot = ResourceSlotNonFilter | ResourceSlotFilter
+export interface ResourceSlotNonFilter extends ResourceSlotBase {
+  type: Exclude<ResourceSlotType, 'filters'>
   path: FieldID[]
 }
+export interface ResourceSlotFilter extends ResourceSlotBase {
+  type: Extract<ResourceSlotType, 'filters'>
+  path?: FieldID[]
+  filter_id?: FilterID
+}
 export interface ResourceSlotsResponse {
-  title?: ResourceSlot[]
-  subtitle?: ResourceSlot[]
-  info?: ResourceSlot[]
-  filters?: ResourceSlot[]
-  cover?: ResourceSlot[]
+  title?: ResourceSlotNonFilter[]
+  subtitle?: ResourceSlotNonFilter[]
+  info?: ResourceSlotNonFilter[]
+  filters?: ResourceSlotFilter[]
+  cover?: ResourceSlotNonFilter[]
+}
+export class ResourceSlotsService extends SchemaService<ResourceSlot> {
+  constructor(public schema: Schema) {
+    super(schema, 'resources/slots')
+  }
+
+  async order(slots: ResourceSlot[]) {
+    await this.schema.api.post('resources/slots/order', {
+      order: slots.map(slot => slot.id),
+    })
+    this.items.clear()
+    await this.refresh()
+  }
 }
 export class SlotManager {
   constructor(private resource: Resource) {}
 
-  get title_slots(): ResourceSlot[] {
+  get title_slots(): ResourceSlotNonFilter[] {
     if (this.resource.slots_raw?.title) {
       return this.resource.slots_raw?.title
     }
     const field = this.resource.fields.find(x => x.is_textual)
-    return field ? [{ path: [field.id], id: undefined! }] : []
+    return field
+      ? [
+          {
+            type: 'title',
+            resource_id: this.resource.id,
+            labels: {},
+            path: [field.id],
+            id: undefined!,
+            opts: {},
+          },
+        ]
+      : []
   }
-  get subtitle_slots(): ResourceSlot[] {
+  get subtitle_slots(): ResourceSlotNonFilter[] {
     return this.resource.slots_raw?.subtitle ?? []
   }
-  get info_slots(): ResourceSlot[] {
+  get info_slots(): ResourceSlotNonFilter[] {
     return this.resource.slots_raw?.info ?? []
   }
-  get filter_slots(): ResourceSlot[] {
+  get filter_slots(): ResourceSlotFilter[] {
     return this.resource.slots_raw?.filters ?? []
   }
-  get cover_slots(): ResourceSlot[] {
+  get cover_slots(): ResourceSlotNonFilter[] {
     if (this.resource.slots_raw?.cover) {
       return this.resource.slots_raw?.cover
     }
     const field = this.resource.fields.find(x => x.type == 'image')
-    return field ? [{ path: [field.id], id: undefined! }] : []
+    return field
+      ? [
+          {
+            type: 'cover',
+            resource_id: this.resource.id,
+            labels: {},
+            path: [field.id],
+            id: undefined!,
+            opts: {},
+          },
+        ]
+      : []
   }
 
   queryFields(): FieldQuery[] {
     const ret: FieldQuery[] = []
-    /* ret = [
-      'nome',
-      'codice',
-      {
-        field: 'prodotti',
-        fields: [
-          'sku'
-        ]
-      }
-    ] */
     this.title_slots.forEach(slot =>
-      Query.addPathToFieldQueries(ret, cloneDeep(slot.path))
+      Query.addPathToFieldQueries(
+        ret,
+        this.resource.resolveFieldPath(slot.path)
+      )
     )
     this.subtitle_slots.forEach(slot =>
-      Query.addPathToFieldQueries(ret, cloneDeep(slot.path))
+      Query.addPathToFieldQueries(
+        ret,
+        this.resource.resolveFieldPath(slot.path)
+      )
     )
     this.info_slots.forEach(slot =>
-      Query.addPathToFieldQueries(ret, cloneDeep(slot.path))
+      Query.addPathToFieldQueries(
+        ret,
+        this.resource.resolveFieldPath(slot.path)
+      )
     )
     this.cover_slots.forEach(slot =>
-      Query.addPathToFieldQueries(ret, cloneDeep(slot.path))
+      Query.addPathToFieldQueries(
+        ret,
+        this.resource.resolveFieldPath(slot.path)
+      )
     )
     return ret
   }
@@ -98,24 +158,19 @@ export class SlotManager {
   queryFilters(query: string): QueryFilter {
     const clauses: SimpleFieldClause[] = []
 
-    console.log('query filter title_slots', this.title_slots)
-    console.log('query filter subtitle_slots', this.subtitle_slots)
-    console.log('query filter info_slots', this.info_slots)
-    console.log('query filter SCHEMA', this.resource.schema())
-
     this.title_slots.forEach(slot => {
       if (this.isPathValid(slot.path)) {
-        clauses.push([slot.path.join('.'), 'like', query])
+        clauses.push([slot.path?.join('.') ?? '', 'like', query])
       }
     })
     this.subtitle_slots.forEach(slot => {
       if (this.isPathValid(slot.path)) {
-        clauses.push([slot.path.join('.'), 'like', query])
+        clauses.push([slot.path?.join('.') ?? '', 'like', query])
       }
     })
     this.info_slots.forEach(slot => {
       if (this.isPathValid(slot.path)) {
-        clauses.push([slot.path.join('.'), 'like', query])
+        clauses.push([slot.path?.join('.') ?? '', 'like', query])
       }
     })
     let filter: QueryFilter = ['_or']
@@ -134,7 +189,8 @@ export class SlotManager {
     return filter
   }
 
-  private isPathValid(path: FieldID[]) {
+  private isPathValid(path?: FieldID[]) {
+    if (!path) return false
     return !path
       .map(f_id => !!this.resource.schema().field(f_id))
       .includes(false)
@@ -400,5 +456,17 @@ export class Resource<
     if (isSymbol(field_name)) return
     if (field_name instanceof Field) return field_name
     return this.field(field_name)
+  }
+  resolveFieldPath(path: FieldIdentifier[]): Field[] | undefined {
+    if (path.length == 0) return []
+    const f = this.field(path[0])
+    if (!f) return undefined
+    if (path.length == 1) {
+      return [f]
+    }
+    if (f.type != 'relation') return undefined
+    const child_path = f.relatedResource().resolveFieldPath(path.slice(1))
+    if (!child_path) return undefined
+    return [f].concat(child_path)
   }
 }

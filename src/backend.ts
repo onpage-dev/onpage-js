@@ -1,3 +1,4 @@
+import { each, map } from 'lodash'
 import { ThingsRequestBody } from './query'
 import { Schema, SchemaID, SchemaJson } from './schema'
 
@@ -36,13 +37,24 @@ export abstract class Backend<R extends { data: any } = { data: any }> {
   ): Promise<R>
   abstract clone(): void
 
-  storageLink(token: string, name?: string, inline?: boolean): string {
+  storageLink(token: string, name?: string, download = false): string {
     let url = `${this.api_url}/storage/${token}`
+    const options: Record<string, string> = {}
+
     if (name) {
-      url = `${url}?name=${name}`
-      if (inline) {
-        url = `${url}&inline=true`
-      }
+      url = `${url}/${encodeURI(name)}`
+    }
+    if (download) {
+      options.download = 'true'
+    }
+    if (Object.values(options).length) {
+      url +=
+        '?' +
+        map(
+          options,
+          (value, name) =>
+            encodeURIComponent(name) + '=' + encodeURIComponent(value)
+        ).join('&')
     }
     return url
   }

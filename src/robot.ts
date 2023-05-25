@@ -1,4 +1,4 @@
-import { FieldID, QueryFilter, RelatedTo, Schema, ThingID } from '.'
+import { FieldID, QueryFilter, Schema, SchemaID, ThingID, UserID } from '.'
 import { ResourceID } from './resource'
 import { SchemaService } from './schema-service'
 
@@ -9,21 +9,32 @@ export interface Robot {
   id: RobotID
   resource_id: ResourceID
   label: string
+  is_disabled: boolean
+  is_automatic: boolean
+  user_id?: UserID
+  foreach_langs?: boolean
+  enable_https?: boolean
+  failed_jobs_count?: number
 }
 export interface FullRobot extends Robot {
   script: string
   input: FieldID[][]
-  libs?: any[]
-  related_to?: RelatedTo
-  filters?: QueryFilter[]
-  foreach_langs?: boolean
-  enable_https?: boolean
+  libs: any[]
+  filters: QueryFilter[]
 }
 export interface RobotJob {
+  id: number
+  robot_id: RobotID
   thing_id: ThingID
-  log: string
+  schema_id: SchemaID
+  state: 'pending' | 'executed' | 'failed' | 'running'
+  log?: string
   error?: string
   updates?: any
+  running_at?: string
+  failed_at?: string
+  completed_at?: string
+  outdated_at?: string
 }
 export interface Lib {
   id: LibID
@@ -57,6 +68,10 @@ export class RobotService extends SchemaService<Robot> {
     return this.schema.api.post('robots/queue-all', { id })
   }
 
+  launchRobot(robot_id: RobotID, filters: QueryFilter[]) {
+    return this.schema.api.post('robots/queue', { robot_id, filters })
+  }
+
   async testRun(robot: Partial<FullRobot>, thing_id: ThingID) {
     this.test_loading = true
     const params = {
@@ -74,12 +89,15 @@ export class RobotService extends SchemaService<Robot> {
       this.test_loading = false
       return res.data
     } catch (error) {
-      console.log(error)
+      console.error(error)
       this.test_loading = false
     }
   }
 
-  getRobotJobs(id: RobotID, state: string) {
+  getRobotJobs(
+    id: RobotID,
+    state?: string
+  ): Promise<{ data: { data: RobotJob[] } }> {
     return this.schema.api.get('robots/jobs', { robot_id: id, state })
   }
 

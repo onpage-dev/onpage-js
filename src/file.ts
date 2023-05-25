@@ -13,6 +13,16 @@ export interface OpFileRaw {
   color_g?: number
 }
 
+export interface FileLinkOptions {
+  x?: number
+  y?: number
+  download?: boolean
+  ext?: string
+  name?: string
+  mode?: 'contain' | 'max' | 'trim'
+  inline?: boolean
+}
+
 export class OpFile {
   static readonly IMAGE_FORMATS = [
     'png',
@@ -26,6 +36,7 @@ export class OpFile {
     'tif',
     'tiff',
     'pdf',
+    'psd',
   ]
 
   public name: string
@@ -52,15 +63,7 @@ export class OpFile {
     return new OpFile(this.api, this)
   }
 
-  link(
-    opts: Partial<{
-      x: number
-      y: number
-      inline: boolean
-      ext: string
-      mode: 'contain' | 'max' | 'trim'
-    }> = {}
-  ): string {
+  link(opts: FileLinkOptions = {}): string {
     let suffix = ''
     if (this.isImage()) {
       if ('x' in opts) {
@@ -87,8 +90,8 @@ export class OpFile {
     }
     return this.api.storageLink(
       `${this.token}${suffix}`,
-      this.name,
-      opts.inline
+      opts.name ?? this.name,
+      opts.download
     )
   }
 

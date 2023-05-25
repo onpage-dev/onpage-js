@@ -32,6 +32,27 @@ export interface FieldFolderJson {
   arrow_fields: FieldID[]
 }
 
+export type FieldType =
+  | 'string'
+  | 'text'
+  | 'markdown'
+  | 'html'
+  | 'url'
+  | 'int'
+  | 'real'
+  | 'dim2'
+  | 'dim3'
+  | 'volume'
+  | 'weight'
+  | 'price'
+  | 'bool'
+  | 'date'
+  | 'datetime'
+  | 'json'
+  | 'editorjs'
+  | 'file'
+  | 'image'
+  | 'relation'
 export class Field {
   private json!: FieldJson
 
@@ -46,7 +67,9 @@ export class Field {
   getJson(clone = true) {
     return clone ? cloneDeep(this.json) : this.json
   }
-
+  get is_meta(): boolean {
+    return !!this.json.is_meta
+  }
   get id(): FieldID {
     return this.json.id
   }
@@ -107,7 +130,7 @@ export class Field {
   get opts(): { [key: string]: any } {
     return this.json.opts
   }
-  get type(): string {
+  get type(): FieldType {
     return this.json.type
   }
   get name(): FieldName {

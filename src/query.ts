@@ -1,7 +1,7 @@
 import { AxiosRequestConfig } from 'axios'
 import { clone, cloneDeep, isArray, isObject, last, pick } from 'lodash'
 import { Field, FieldID, FieldIdentifier } from './field'
-import { MetaField, META_FIELDS } from './fields'
+import { META_FIELDS, MetaField } from './fields'
 import {
   FilterClause,
   GroupClause,
@@ -73,7 +73,7 @@ export interface QueryFilterGroup extends Omit<GroupClause, 'children'> {
 
 export interface ThingsRequestBody {
   filters: QueryFilter[]
-  fields: FieldQuery[]
+  fields?: FieldQuery[]
   order_by?: OrderBy
   page?: number
   per_page?: number
@@ -125,6 +125,25 @@ export class FilterHelper {
 
   getFilters(): QueryFilter[] {
     return this.filters
+  }
+
+  whereIsEmpty(path_str: FieldIdentifier) {
+    return this.where(path_str, 'empty', '')
+  }
+  whereIsNotEmpty(path_str: FieldIdentifier) {
+    return this.where(path_str, 'not_empty', '')
+  }
+  whereIn(path_str: FieldIdentifier, values: any[]) {
+    return this.where(path_str, 'in', values)
+  }
+  whereNotIn(path_str: FieldIdentifier, values: any[]) {
+    return this.where(path_str, 'not_in', values)
+  }
+  whereLike(path_str: FieldIdentifier, value: string | number) {
+    return this.where(path_str, 'like', value)
+  }
+  whereNotLike(path_str: FieldIdentifier, value: string | number) {
+    return this.where(path_str, 'not_like', value)
   }
 
   where(path_str: FieldIdentifier | MetaField, operator: any, value?: any) {
@@ -218,8 +237,15 @@ export class FilterHelper {
     operator: RelationOperator = 'count_>',
     value = 0
   ) {
-    const fields = field.split('.')
-    field = fields.shift()!
+    const path = field.split('.')
+    field = path.shift()!
+
+    if (path.length) {
+      this.whereHas(field, q =>
+        q.whereHas(path.join('.'), subquery, 'count_>', 0)
+      )
+      return this
+    }
 
     const f = this.resource.field(field)
     if (f?.type != 'relation') {
@@ -254,26 +280,30 @@ export class FilterHelper {
 
   static addPathToFieldQueries(
     parent: FieldQuery[],
-    path: FieldIdentifier[],
+    path?: Field[],
     limit?: number
   ) {
-    const next_field = path.shift()!
-    if (!path.length) {
-      parent.push(next_field)
+    if (!path?.length) return
+    const next_field = path[0]
+    if (path.length == 1) {
+      parent.push(next_field.id)
     } else {
       let group = parent.find(
-        f => isObject(f) && !isArray(f) && f.field == next_field
+        f =>
+          isObject(f) &&
+          !isArray(f) &&
+          (f.field == next_field.id || f.field == next_field.name)
       ) as FieldQueryGroup | undefined
       if (!group) {
         group = {
-          field: next_field,
+          field: next_field.id,
           fields: [],
           limit,
-          as: String(next_field),
+          as: String(next_field.id),
         }
         parent.push(group)
       }
-      Query.addPathToFieldQueries(group.fields!, path, limit)
+      Query.addPathToFieldQueries(group.fields!, path.slice(1), limit)
     }
   }
 }
@@ -298,6 +328,33 @@ export class Query<
 
   get api() {
     return this.resource.is_virtual ? this.schema.local_api : this.schema.api
+  }
+
+  getFilters(include_related_to = false): QueryFilter[] {
+    let ret = this.filters
+    if (
+      include_related_to &&
+      this.type.type == 'root' &&
+      this.type.related_to
+    ) {
+      ret = ret.concat({
+        type: 'group',
+        relation: {
+          field: this.schema.field(this.type.related_to.field_id)?.rel_field_id,
+          operator: 'count_>',
+          value: 0,
+        },
+        children: [
+          {
+            type: 'field',
+            field: '_id',
+            operator: '=',
+            value: this.type.related_to.thing_id,
+          },
+        ],
+      } as GroupClause)
+    }
+    return ret
   }
 
   clone() {

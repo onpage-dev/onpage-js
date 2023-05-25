@@ -9,7 +9,6 @@ import {
   isObject,
   isString,
   isSymbol,
-  uniq,
   uniqBy,
 } from 'lodash'
 import { stripHtml } from 'string-strip-html'
@@ -23,6 +22,10 @@ import { Schema, ThingJson } from './schema'
 import { ThingEditor } from './thing-editor'
 export type ThingID = number
 export type TableConfigID = number
+
+export interface ThingValuesConfig {
+  [key: FieldID]: { lang?: string; values: ThingValue[] }[]
+}
 
 export type ThingValue =
   | boolean
@@ -428,7 +431,10 @@ export class Thing<Structure extends FieldCollection | undefined = undefined> {
     // console.log('TODO: refresh thing')
   }
 
-  thingSlots(): {
+  thingSlots(opts?: {
+    formatDate?: (date: string) => string
+    formatDateTime?: (date: string) => string
+  }): {
     title: string
     subtitle?: string
     cover?: OpFile
@@ -469,6 +475,12 @@ export class Thing<Structure extends FieldCollection | undefined = undefined> {
               }
               if (final_field.unit) {
                 x += currencySymbol[final_field.unit] || final_field.unit
+              }
+              if (final_field.type == 'date') {
+                x = opts?.formatDate ? opts.formatDate(x) : x
+              }
+              if (final_field.type == 'datetime') {
+                x = opts?.formatDateTime ? opts.formatDateTime(x) : x
               }
             }
             return x
@@ -537,13 +549,16 @@ function formatNumber(
   thousands = ','
 ) {
   try {
+    // Convert amount to number
+    amount = +amount || 0
+
     decimalCount = Math.abs(decimalCount)
     decimalCount = isNaN(decimalCount) ? 2 : decimalCount
 
     const negativeSign = amount < 0 ? '-' : ''
 
     const i = parseInt(
-      (amount = Math.abs(Number(amount) || 0).toFixed(decimalCount))
+      (amount = Math.abs(amount).toFixed(decimalCount))
     ).toString()
     const j = i.length > 3 ? i.length % 3 : 0
 

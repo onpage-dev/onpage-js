@@ -37,7 +37,12 @@ export interface FtpEntry {
 export async function scanFtpDirectory(
   schema: Schema,
   id: FtpConfigID,
-  directory?: string
+  directory?: string,
+  silence?: boolean
 ): Promise<FtpEntry[]> {
-  return (await schema.api.get(`ftp-configs/${id}/files`, { directory })).data!
+  return (
+    await schema.api.get(`${silence ? '.s/' : ''}ftp-configs/${id}/files`, {
+      directory,
+    })
+  ).data!
 }

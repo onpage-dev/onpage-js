@@ -21,7 +21,7 @@ export class SchemaService<
     this.id = Math.random()
   }
   public items: Map<ID, T> = new Map()
-  private is_loaded = false
+  public is_loaded = false
 
   get is_loading() {
     return !this.is_ready || !this.is_loaded
@@ -69,6 +69,7 @@ export class SchemaService<
   // Load all items from this service
   async refresh(): Promise<Map<ID, T>> {
     try {
+      this.is_loaded = false
       const items: J[] = (
         await this.schema.api.get(this.endpoint, this.data_clone)
       ).data
@@ -85,30 +86,6 @@ export class SchemaService<
     }
   }
 
-  // Save a single item
-  async save(form: Partial<J> | FormData): Promise<J> {
-    console.log('saving', form)
-    this.is_loaded = false
-    let payload = form
-    if (form instanceof FormData) {
-      each(this.data_clone, (value, key) => {
-        form.append(key, value)
-      })
-    } else {
-      payload = Object.assign(this.data_clone, payload)
-    }
-    const item = (await this.schema.api.post(this.endpoint, payload)).data as J
-    if (!(form instanceof FormData)) {
-      reassign(form, item)
-    }
-    this.addOrUpdate(item)
-    if (this.on_save) {
-      this.on_save(item)
-    }
-    this.is_loaded = true
-    return item
-  }
-
   // Add an item to the item collection
   private addOrUpdate(latest: J) {
     const current = this.items.get(latest.id!)
@@ -120,10 +97,46 @@ export class SchemaService<
     }
   }
 
+  // Save a single item
+  async save(form: Partial<J> | FormData): Promise<J | undefined> {
+    try {
+      this.is_loaded = false
+      let payload = form
+      if (form instanceof FormData) {
+        each(this.data_clone, (value, key) => {
+          form.append(key, value)
+        })
+      } else {
+        payload = Object.assign(this.data_clone, payload)
+      }
+      const item = (await this.schema.api.post(this.endpoint, payload))
+        .data as J
+      if (!(form instanceof FormData)) {
+        reassign(form, item)
+      }
+      this.addOrUpdate(item)
+      if (this.on_save) {
+        this.on_save(item)
+      }
+      return item
+    } catch (error) {
+      throw error
+    } finally {
+      this.is_loaded = true
+    }
+  }
+
   // Delete a single item
   async delete(id: ID) {
-    await this.schema.api.delete(this.endpoint + '/' + id, this.data_clone)
-    this.items.delete(id)
+    try {
+      this.is_loaded = false
+      await this.schema.api.delete(this.endpoint + '/' + id, this.data_clone)
+      this.items.delete(id)
+    } catch (error) {
+      throw error
+    } finally {
+      this.is_loaded = true
+    }
   }
 
   get data_clone() {

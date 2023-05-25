@@ -17,7 +17,7 @@ export interface View {
   filters: GroupClause[]
   filter_things?: boolean
   filter_fields?: boolean
-  tree: ViewTree
+  tree?: ViewTree
 }
 
 export interface ViewTree {
