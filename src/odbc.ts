@@ -1,9 +1,13 @@
-import { ApiTokenValue, ResourceID, SchemaID } from '.'
+import { ApiTokenValue, FieldID, ResourceID, SchemaID } from '.'
 
 export type OdbcID = number
 
 export interface OdbcRoot {
   res_id: ResourceID
+  rel_id: FieldID
+  branch_name?: string
+  inline: boolean
+  permutate: boolean
   children: OdbcRoot[]
 }
 

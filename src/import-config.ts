@@ -14,6 +14,9 @@ export interface ImportConfigColumn {
   clean_with_regex?: string
   append_mode?: boolean
   ignore_empty_value_mode?: boolean
+  keep_order?: boolean
+  keep_multi_fields_order?: boolean
+  ignore_invalid_value_mode?: boolean
   ignore_if_thing_exists?: boolean
   create_new_options?: boolean
   skip_empty_lines?: boolean
@@ -35,6 +38,13 @@ export interface ImportConfigColumn {
     exact?: boolean
     regex?: boolean
   }[]
+  generated_from?: ImportConfigGeneratedColumn
+}
+export type ImportConfigGeneratedColumn = ImportConfigConcatColumn
+export interface ImportConfigConcatColumn {
+  type: 'concat'
+  source_columns: ImportConfigColumn['name'][]
+  separator?: string
 }
 export type ImportConfigSource =
   | ImportConfigSourceDatabase
@@ -66,6 +76,12 @@ export interface ImportConfigSourceHttp {
   format: ImportConfigSourceHttpFormat
   url: string
   headers?: Record<string, string>
+  auth?: ImportConfigSourceHttpBasicAuth
+}
+export interface ImportConfigSourceHttpBasicAuth {
+  type: 'basic'
+  username: string
+  password: string
 }
 
 export interface ImportSequence {
@@ -73,7 +89,6 @@ export interface ImportSequence {
   label: string
   token: string
   timezone: string
-  cron_time?: string
   cron_times: string[]
   last_cron_run?: string
   created_at: string
@@ -106,6 +121,7 @@ export interface ImportConfig {
   created_at: string
   updated_at: string
   config: {
+    keep_things_order?: boolean
     merge_on_pk?: boolean
     disable_thing_creation?: boolean
     disable_thing_update?: boolean

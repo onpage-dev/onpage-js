@@ -7,11 +7,11 @@ export interface LegacyTemplate {
   label: string
   resource_id: ResourceID
   schema_id: SchemaID
-  builder_url: string
   is_pathless: boolean
   fonts?: any
   version?: number
   data?: any
+  preview_id?: string
   __removing?: boolean
   __duplicating?: boolean
   archived_at?: string

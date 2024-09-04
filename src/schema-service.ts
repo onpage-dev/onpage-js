@@ -16,7 +16,8 @@ export class SchemaService<
     public data: any = {},
     public parser: SchemaServiceParser<J, T> = SchemaServiceIdentityParser,
     public actions?: X,
-    public on_save?: (item: J) => any
+    public on_save?: (item: J) => any,
+    public on_delete?: (item_id: J['id']) => any
   ) {
     this.id = Math.random()
   }
@@ -33,7 +34,7 @@ export class SchemaService<
   }
 
   get items_array(): T[] {
-    return [...this.items.values()]
+    return Array.from(this.items.values())
   }
 
   // Load all items from this service
@@ -87,7 +88,7 @@ export class SchemaService<
   }
 
   // Add an item to the item collection
-  private addOrUpdate(latest: J) {
+  addOrUpdate(latest: J) {
     const current = this.items.get(latest.id!)
 
     if (current) {
@@ -115,9 +116,7 @@ export class SchemaService<
         reassign(form, item)
       }
       this.addOrUpdate(item)
-      if (this.on_save) {
-        this.on_save(item)
-      }
+      this.on_save && this.on_save(item)
       return item
     } catch (error) {
       throw error
@@ -132,6 +131,7 @@ export class SchemaService<
       this.is_loaded = false
       await this.schema.api.delete(this.endpoint + '/' + id, this.data_clone)
       this.items.delete(id)
+      this.on_delete && this.on_delete(id)
     } catch (error) {
       throw error
     } finally {

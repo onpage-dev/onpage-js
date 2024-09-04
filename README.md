@@ -1,5 +1,7 @@
 # On Page ® JS library
 
+[![npm version](https://badge.fury.io/js/onpage-js.svg)](https://badge.fury.io/js/onpage-js)
+
 With this library you can easy query your data using an On Page ® API token.
 
 ## Installation
@@ -14,12 +16,19 @@ yarn add onpage-js
 
 ### Setup
 
+Load a project using an API Token
+
 ```ts
-import {Api} from 'onpage-js'
-let api = new Api('MY-SUBDOMAIN', api_token)
-api.loadSchema().then(schema => {
-  console.log(schema.label, 'is ready')
-})
+import { Schema } from 'onpage-js'
+const schema = await Schema.load({ token: 'abc' })
+console.log(schema.label, 'is ready')
+```
+
+Load a project using an User Token (for internal use)
+
+```ts
+const api = new Api({ token: 'abc', is_user_mode: true })
+const schema = api.loadSchema(123)
 ```
 
 ### Get structure information
@@ -75,6 +84,7 @@ let valid_products = schema
 ### Get thing values
 
 You can use the `val()` or `file()` method to retrieve a single value from the field:
+
 ```ts
 let cat = await schema.query('categories').first()
 console.log(cat.val('name'))
@@ -86,11 +96,11 @@ console.log(cat.values('bullet_points')) // [ "First value", "Second value" ]
 ```
 
 These functions also work on related items:
+
 ```ts
 let cat = await schema.query('categories').with('products.colors').first()
 console.log(cat.values('products.colors.name')) // ["green", "red", "blue"]
 ```
-
 
 #### Files
 
@@ -100,7 +110,7 @@ To get a file or image url use the `.link()` function. The link will point to th
 ```ts
 product.file('specsheet').name // icecream-spec.pdf
 product.file('specsheet').token // R417C0YAM90RF
-product.file('specsheet').link() // https://acme-inc.onpage.it/api/storage/R417C0YAM90RF?name=icecream-spec.pdf
+product.file('specsheet').link() // https://storage.onpage.it/FILEHASH/icecream-spec.pdf
 ```
 
 To turn images into a thumbnail add an array of options as shown below:
@@ -140,6 +150,7 @@ let products = await cat.rel('subcategories.products')
 ```
 
 ### Preload thing relations
+
 The previous example will execute an API call every time you call the `rel()` method.
 Usually it is a good idea to preload relations so that only one API call is done, resulting in faster execution.
 
@@ -166,36 +177,35 @@ let cat = await schema
 // Or many relations at once:
 let product = await schema
   .query('products')
-  .with([
-    'category',
-    'variants.size',
-    'variants.color',
-  ])
+  .with(['category', 'variants.size', 'variants.color'])
   .first()
 ```
 
-
 ### Filter related items
+
 ```ts
 // If you need to filter the related items you want to download, you can do this:
-const category = schema.query('categories')
-    .with('subcategories.articles.colors')
-    .filterRelation('subcategories.articles', q => {
-        q.where('is_online', true);
-    })
-    .first();
+const category = schema
+  .query('categories')
+  .with('subcategories.articles.colors')
+  .filterRelation('subcategories.articles', q => {
+    q.where('is_online', true)
+  })
+  .first()
 
 // Only online articles will be downloaded
 const articles = category.relSync('subcategories.articles')
 ```
 
 ### Set relation related items
+
 ```ts
 // You can also limit the fields on a related item
-const products = schema.query('products')
-  .with([ 'colors' ])
+const products = schema
+  .query('products')
+  .with(['colors'])
   .loadRelationFields('colors', ['name', 'image']) // only load 2 fields for the "color" relation
-  .all();
+  .all()
 ```
 
 # Creating and updating things
@@ -212,53 +222,57 @@ This class allows you to edit many records at once.
 You can easily obtain the editor calling:
 
 ```ts
-const writer = schema.resource('categories').writer();
+const writer = schema.resource('categories').writer()
 ```
 
 Now that you have a **Resource Writer**, you can use it to create things:
 
 ```ts
-const editor = writer.createThing();
-editor.set('name', 'Element 1');
-editor.setRel('category', [ 12345 ]); // array with category IDs
+const editor = writer.createThing()
+editor.set('name', 'Element 1')
+editor.setRel('category', [12345]) // array with category IDs
 ```
 
 ...and to update existing things:
 
 ```ts
-const editor = writer.updateThing(736251); // The id of the element you want to update
-editor.set('description', 'Element 1 description');
+const editor = writer.updateThing(736251) // The id of the element you want to update
+editor.set('description', 'Element 1 description')
 ```
 
 Finally, you need to send the request to the On Page server:
 
 ```ts
 // this will create and update all the things as requested above
-await writer.save();
+await writer.save()
 ```
 
 ## Updating a single item (second method)
 
 ```ts
-const product = await schema.query('products').where('name', 'Plastic Duck').first();
+const product = await schema
+  .query('products')
+  .where('name', 'Plastic Duck')
+  .first()
 
-editor = product.editor();
-editor.set('description', 'This yellow plastic duck will be your best friend');
-editor.set('description', '这只黄色塑料鸭将是你最好的朋友', 'zh'); // you can specify language
+editor = product.editor()
+editor.set('description', 'This yellow plastic duck will be your best friend')
+editor.set('description', '这只黄色塑料鸭将是你最好的朋友', 'zh') // you can specify language
 
 // Save all the edits at once using the save method
-await editor.save();
-
+await editor.save()
 ```
 
 ## Limiting modified languages
+
 By default, even if you update a single language, the writer will delete the data on other languages. If you only need to edit certain languages and maintain the current values for the others, you can specify which languages you are working on as follows:
+
 ```ts
 // Update the chinese description without deleting the english description:
-editor = product.editor();
-editor.setLangs([ 'zh' ]);
-editor.set('description', '这只');
-await editor.save();
+editor = product.editor()
+editor.setLangs(['zh'])
+editor.set('description', '这只')
+await editor.save()
 ```
 
 ## Updating translations
@@ -267,10 +281,10 @@ Just add the language code as the third argument to the `set` function:
 
 ```ts
 // Update the value in the default language
-editor.set('description', 'This yellow plastic duck will be your best friend');
+editor.set('description', 'This yellow plastic duck will be your best friend')
 
 // Specify another the language
-editor.set('description', '这只黄色塑料鸭将是你最好的朋友', 'zh');
+editor.set('description', '这只黄色塑料鸭将是你最好的朋友', 'zh')
 ```
 
 ## Updating files
@@ -278,7 +292,7 @@ editor.set('description', '这只黄色塑料鸭将是你最好的朋友', 'zh')
 You can upload a file using a public URL:
 
 ```ts
-editor.set('image', 'https://mysite.com/bird_cover.jpg'); // specify file by url
+editor.set('image', 'https://mysite.com/bird_cover.jpg') // specify file by url
 ```
 
 ## Updating multivalue fields
@@ -287,10 +301,10 @@ For multivalue fields you only need to replace `.set` with `.setValues` and pass
 
 ```ts
 editor.setValues('bullet_points', [
-    'Durable plastic',
-    'Bright yellow color',
-    'Compostable'
-]);
+  'Durable plastic',
+  'Bright yellow color',
+  'Compostable',
+])
 ```
 
 ## Updating relations
@@ -298,9 +312,38 @@ editor.setValues('bullet_points', [
 To update relations, you can use the `.setRel(relation_name, related_ids)`:
 
 ```ts
-editor.setRel('features', [
-    425790,
-    547023,
-    240289,
-]);
+editor.setRel('features', [425790, 547023, 240289])
+```
+
+## Offline mode
+
+You can download data for offline usage by calling `schema.createSnapshot()` which will download all the things in the project and return an object that contains information about the schema and its elements (the things) which can be easily serialized.
+
+```js
+// Download all data from the project
+const serialized_data = await schema.createSnapshot()
+
+// Use the snapshot to create a new Schema instance in offline mode
+const offline_schema = Schema.fromSnapshot(serialized_data)
+
+// This schema is now in offline mode, which means all queries are run locally (e.g. without internet connection)
+// All features should work, if something does not, please open a issue in Github
+await offline_schema.query('products').count()
+```
+
+Example: store and restore the snapshot in the localStorage:
+
+```js
+// Download and store the project
+async function serializeToLocalStorage() {
+  const online_schema = await Schema.load({ token: 'abc' })
+  const serialized_data = await online_schema.createSnapshot()
+  localStorage.setItem('offline-data', JSON.stringify(serialized_data))
+}
+
+function deserializeFromLocalStorage(): Schema {
+  const serialized_data = JSON.parse(localStorage.getItem('offline-data'))
+  const offline_schema = Schema.fromSnapshot(serialized_data)
+  return offline_schema
+}
 ```

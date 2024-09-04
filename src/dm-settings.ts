@@ -28,16 +28,16 @@ export type ItemDMConfig = {
 export class FullItemDMConfig {
   type: 'resource'
   key: ItemDMConfigKey
-  resource: Resource
+  resource?: Resource
   labels?: TranslatableLabel
   filter?: GroupClause
   enable_fast_filters?: boolean
   fast_filters: FilterID[]
 
-  constructor(public schema: Schema, item: ItemDMConfig) {
+  constructor(public schema: Schema, public item: ItemDMConfig) {
     this.type = item.type
     this.key = item.key
-    this.resource = schema.resource(item.resource_id)!
+    this.resource = schema.resource(item.resource_id)
     this.labels = item.labels
     this.filter = item.filter
     this.enable_fast_filters = item.enable_fast_filters
@@ -48,7 +48,7 @@ export class FullItemDMConfig {
     return {
       type: this.type,
       key: this.key,
-      resource_id: this.resource.id,
+      resource_id: this.resource?.id || this.item.resource_id,
       labels: this.labels,
       filter: this.filter,
       enable_fast_filters: this.enable_fast_filters,
@@ -56,8 +56,8 @@ export class FullItemDMConfig {
     }
   }
   getLabel(lang?: string) {
-    const labels = this.labels ?? this.resource.labels
-    return getLabel(labels, this.schema, lang)
+    const labels = this.labels ?? this.resource?.labels
+    return labels ? getLabel(labels, this.schema, lang) : ''
   }
 }
 export interface ItemGroup {
@@ -73,9 +73,9 @@ export class FullItemGroup {
   constructor(public schema: Schema, item_group: ItemGroup) {
     this.key = item_group.key
     this.labels = item_group.labels
-    this.items = item_group.items.map(
-      item => new FullItemDMConfig(schema, item)
-    )
+    this.items = item_group.items
+      .map(item => new FullItemDMConfig(schema, item))
+      .filter(item => item.resource)
   }
 
   getLabel(lang?: string) {
@@ -84,7 +84,8 @@ export class FullItemGroup {
 }
 export interface ResourceSettings {
   viewer?: 'list' | 'grid' | 'table'
-  grid_size?: number
+  expand_grid_width?: boolean
+  expand_table_width?: boolean
   hide_from_list?: boolean
   can_send_drafts?: boolean
   filters_whitelist?: FilterLabel[]

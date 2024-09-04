@@ -1,37 +1,25 @@
-import { cloneDeep, isArray, isObject } from 'lodash'
-import { Resource, ResourceID } from './resource'
+import { cloneDeep, first, isArray, isObject, isString } from 'lodash'
+import { FolderViewID, FolderViewJson } from '.'
+import { TranslatableString } from './connector-config'
+import { Resource } from './resource'
 import { FieldJson, Schema } from './schema'
 import { ThingValue } from './thing'
+import { isNullOrEmpty, isNullOrUndefined } from './utils'
 export type FieldFolderID = number
 
 export type FieldID = number
 export type FieldName = string
 export type FieldIdentifier = FieldID | FieldName
 export const FIELD_VISIBILITY_TYPES = ['private', 'public'] as const
-export type FieldVisibilityType = typeof FIELD_VISIBILITY_TYPES[number]
-export interface FieldFolder {
-  id: FieldFolderID
-  resource_id: ResourceID
-  name?: string
+export type FieldVisibilityType = (typeof FIELD_VISIBILITY_TYPES)[number]
+export interface FieldFolder extends FolderViewJson {
   label: string
-  labels: { [key: string]: string }
-  is_default: boolean
   fids: FieldID[]
 }
-
-export interface FieldFolderJson {
-  id: FieldFolderID
-  name: string
-  resource_id: ResourceID
-  order: number
-  labels: {
-    [key: string]: string
-  }
-  type: 'folder'
-  form_fields: FieldID[]
-  arrow_fields: FieldID[]
+export interface FieldValueOption {
+  groups?: FolderViewID[]
+  value: { [key: string]: string | number | undefined }
 }
-
 export type FieldType =
   | 'string'
   | 'text'
@@ -40,12 +28,15 @@ export type FieldType =
   | 'url'
   | 'int'
   | 'real'
+  | 'number'
+  | 'dim1'
   | 'dim2'
   | 'dim3'
   | 'volume'
   | 'weight'
   | 'price'
   | 'bool'
+  | 'etim'
   | 'date'
   | 'datetime'
   | 'json'
@@ -70,17 +61,31 @@ export class Field {
   get is_meta(): boolean {
     return !!this.json.is_meta
   }
+  get is_robot(): boolean {
+    return !!this.opts.is_robot
+  }
+  get is_attribute(): boolean {
+    return !!this.opts.is_attribute
+  }
   get id(): FieldID {
     return this.json.id
   }
   get label(): string {
     return this.getLabel(this._schema.lang)
   }
+  get ai_options():
+    | { context: FieldID[][]; additional_context?: string }
+    | undefined {
+    return this.json.opts.ai_options
+  }
   get labels(): { [key: string]: any } {
     return this.json.labels
   }
   get visibility(): FieldVisibilityType {
     return this.json.visibility ?? 'public'
+  }
+  get etim_version(): string {
+    return this.json.opts.etim_version
   }
   getLabel(lang: string): string {
     return (
@@ -93,7 +98,7 @@ export class Field {
   get description(): string | undefined {
     return this.getDescription(this._schema.lang)
   }
-  get descriptions(): { [key: string]: any } {
+  get descriptions(): TranslatableString {
     return this.json.descriptions
   }
   getDescription(lang: string): string | undefined {
@@ -144,6 +149,57 @@ export class Field {
   }
   get is_textual() {
     return this.json.is_textual
+  }
+
+  getOptions(): undefined | FieldValueOption[] {
+    if (!this.opts.value_options) return
+    const ret: FieldValueOption[] = []
+    const def_lang = this.is_translatable ? this.schema().langs[0] : ''
+    this.opts.value_options.forEach(
+      (opt: string | { lang?: string; value: string }[] | FieldValueOption) => {
+        // Old not translatable field
+        if (isString(opt)) {
+          ret.push({ groups: undefined, value: { [def_lang]: opt } })
+          return
+        }
+
+        // { lang?: string; value: string }[]
+        if (isArray(opt)) {
+          const labels: TranslatableString = {}
+          opt.forEach(opt => {
+            labels[opt.lang ?? ''] = opt.value
+          })
+
+          if (this.is_translatable) {
+            if (isNullOrEmpty(labels[def_lang])) {
+              labels[def_lang] = labels['']
+              delete labels['']
+            }
+          } else {
+            if (isNullOrEmpty(labels[''])) {
+              labels[''] = labels[def_lang]
+              delete labels[def_lang]
+            }
+          }
+          ret.push({ groups: undefined, value: labels })
+          return
+        }
+
+        // FieldValueOption
+        const new_opt = cloneDeep(opt)
+        // Fallback to default_lang or first value available in case field was translatable and now isn't
+        if (!this.is_translatable && isNullOrUndefined(opt.value[''])) {
+          opt.value[''] =
+            opt.value[this.schema().langs[0]] ?? first(Object.values(opt.value))
+        }
+        // Fallback to '' for default_lang in case field wasn't translatable and now is
+        if (this.is_translatable && isNullOrUndefined(opt.value[def_lang])) {
+          opt.value[def_lang] = opt.value['']
+        }
+        ret.push(new_opt)
+      }
+    )
+    return ret
   }
 
   identifier(lang?: string): string {
@@ -270,6 +326,7 @@ export class Field {
   static isMetaField(field?: string): boolean {
     return Boolean(field && field[0] === '_')
   }
+
   static isMetaFieldAggregate(field?: string): boolean {
     return field === '_count'
   }

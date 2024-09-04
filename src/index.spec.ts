@@ -1,10 +1,9 @@
-import { Api } from './api'
 import { OpFile } from './file'
 
 import { expect } from 'chai'
+import dotenv from 'dotenv'
 import { Schema } from './schema'
 import { Thing } from './thing'
-import dotenv from 'dotenv'
 dotenv.config()
 
 // let api: Api = null
@@ -12,9 +11,8 @@ let schema: Schema
 
 describe('SETUP', async () => {
   it('Schema request', async () => {
-    const api = new Api('app', process.env['TEST_TOKEN'] ?? '')
-    schema = await api.loadSchema()
-    expect(api.getRequestCount()).to.equal(1)
+    schema = await Schema.load({ token: process.env['TEST_TOKEN'] ?? '' })
+    expect(schema.api.getRequestCount()).to.equal(0)
     expect(schema).to.be.instanceOf(Schema)
   })
 })
@@ -53,7 +51,7 @@ describe('FILE', () => {
     const img = arg?.val('disegno1')
     expect(img).to.be.instanceOf(OpFile)
     expect(img?.link()).to.equal(
-      'https://app.onpage.it/api/storage/dd03bec8a725366c6e6327ceb0b91ffd587be553?name=shutterstock_36442114-ok-NEW.jpg'
+      'https://storage.onpage.it/dd03bec8a725366c6e6327ceb0b91ffd587be553/shutterstock_36442114-ok-NEW.jpg'
     )
   })
 })

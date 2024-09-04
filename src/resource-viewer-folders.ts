@@ -1,8 +1,92 @@
-import { GroupClause } from '.'
+import { cloneDeep } from 'lodash'
+import { GroupClause, TranslatableString } from '.'
 import { Field, FieldID } from './field'
 import { ResourceID } from './resource'
 import { Schema } from './schema'
-import { SchemaServiceParser } from './schema-service'
+import { SchemaService, SchemaServiceParser } from './schema-service'
+
+export class FolderViewService extends SchemaService<
+  FolderViewJson,
+  FolderView
+> {
+  toggling_default?: FolderViewID
+
+  constructor(public schema: Schema) {
+    super(schema, 'field-folders', {}, FolderViewParser)
+  }
+  async refresh() {
+    try {
+      this.is_loaded = false
+      const items: FolderViewJson[] = (
+        await this.schema.api.get(this.endpoint, this.data_clone)
+      ).data
+      items.forEach(item => this.addOrUpdate(item))
+
+      for (const key of this.items.keys()) {
+        if (!items.find(x => x.id == key)) this.items.delete(key)
+      }
+    } catch (error) {
+      console.log(error)
+    } finally {
+      this.is_loaded = true
+      return this.items
+    }
+  }
+  getResourceFolders(resource_id: ResourceID) {
+    return this.items_array.filter(f => f.resource_id == resource_id)
+  }
+
+  async renameFolder(folder_id: FolderViewID, new_labels: TranslatableString) {
+    const folder = this.items.get(folder_id)
+    if (!folder) {
+      throw new Error("folder doesn't exist")
+    }
+
+    const form = cloneDeep(folder.serialize())
+    form.labels = new_labels
+    return await this.save(form)
+  }
+
+  async toggleDefault(folder: FolderView) {
+    try {
+      this.toggling_default = folder.id
+      const form = cloneDeep(folder.serialize())
+      form.is_default = !form.is_default
+
+      const other_default = this.items_array.find(
+        f =>
+          f.resource_id == folder.resource_id &&
+          f.is_default &&
+          f.id !== folder.id
+      )
+      if (other_default) {
+        const other_default_form = cloneDeep(other_default.serialize())
+        other_default_form.is_default = false
+        await this.save(other_default_form)
+      }
+      return await this.save(form)
+    } catch (error) {
+      console.error('error while toggling default', error)
+    } finally {
+      this.toggling_default = undefined
+    }
+  }
+
+  async sortFolders(list: FolderView[], resource_id: ResourceID) {
+    try {
+      list.forEach((folder: FolderView, idx: number) => {
+        if (this.items.has(folder.id)) this.items.get(folder.id)!.order = idx
+      })
+
+      await this.schema.api.post(`resources/${resource_id}/order-folders`, {
+        ids: list.map(f => f.id),
+      })
+      await this.refresh()
+    } catch (error) {
+      console.error('error while sorting folders', error)
+    }
+  }
+}
 
 export type FolderViewID = number
 export interface FolderViewFieldSettings {
@@ -15,11 +99,11 @@ export interface FolderViewSettings {
 }
 export interface FolderViewJson {
   type: 'folder'
-  name?: string
-  labels: { [key: string]: string }
-  order: number
   id: FolderViewID
+  name?: string
   resource_id: ResourceID
+  labels: TranslatableString
+  order: number
   is_private?: boolean
   is_default?: boolean
   settings?: FolderViewSettings
@@ -81,6 +165,8 @@ export class FolderView {
       id: this.json.id,
       name: this.json.name,
       resource_id: this.json.resource_id,
+      is_default: this.json.is_default,
+      is_private: this.json.is_private,
       order: this.order,
       labels: this.labels,
       type: 'folder',

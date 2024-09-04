@@ -1,10 +1,16 @@
-import { Api, Backend } from '.'
+import { Api, ApiOptions, Backend } from '.'
+import { isNullOrUndefined } from './utils'
+
+export const IMAGE_EXPORT_FORMATS = ['webp', 'png', 'jpg'] as const
+export type ImageExportFormat = (typeof IMAGE_EXPORT_FORMATS)[number]
+export const IMAGE_EXPORT_FIT = ['contain', 'fit'] as const
+export type ImageExportFit = (typeof IMAGE_EXPORT_FIT)[number]
 
 export interface OpFileRaw {
   name: string
   token: string
-  ext?: string
   extension?: string
+  thumb?: string
   size?: number
   width?: number
   height?: number
@@ -17,10 +23,14 @@ export interface FileLinkOptions {
   x?: number
   y?: number
   download?: boolean
+  inline?: boolean
   ext?: string
   name?: string
-  mode?: 'contain' | 'max' | 'trim'
-  inline?: boolean
+  /**
+   * Default zoom/crop
+   * also for internal use trim-{n}
+   */
+  mode?: 'contain' | 'fit'
 }
 
 export class OpFile {
@@ -37,6 +47,7 @@ export class OpFile {
     'tiff',
     'pdf',
     'psd',
+    'ai',
   ]
 
   public name: string
@@ -52,29 +63,31 @@ export class OpFile {
   public color_a?: number
   public thumb?: string
   public focus?: [number, number]
+  api: Backend
 
-  constructor(public api: Backend, file: OpFileRaw) {
+  constructor(file: OpFileRaw, api?: Backend | ApiOptions) {
+    this.api = api instanceof Backend ? api : new Api(api)
     this.token = file.token
     this.name = file.name ?? file.token
     Object.assign(this, file)
   }
 
   clone() {
-    return new OpFile(this.api, this)
+    return new OpFile(this, this.api)
   }
 
   link(opts: FileLinkOptions = {}): string {
     let suffix = ''
     if (this.isImage()) {
-      if ('x' in opts) {
-        suffix += `.${opts['x']}x`
+      if (!isNullOrUndefined(opts.x)) {
+        suffix += `.${opts.x}x`
 
-        if ('y' in opts) {
-          suffix += `${opts['y']}`
+        if (!isNullOrUndefined(opts.y)) {
+          suffix += `${opts.y}`
         }
       } else {
-        if ('y' in opts) {
-          suffix += `.x${opts['y']}`
+        if (!isNullOrUndefined(opts.y)) {
+          suffix += `.x${opts.y}`
         }
       }
 
@@ -82,11 +95,11 @@ export class OpFile {
         suffix += '-' + opts.mode
       }
     }
-    if (suffix || 'ext' in opts) {
-      if (!('ext' in opts)) {
-        opts['ext'] = 'webp'
+    if (suffix || !isNullOrUndefined(opts.ext)) {
+      if (!opts.ext) {
+        opts.ext = 'webp'
       }
-      suffix += `.${opts['ext']}`
+      suffix += `.${opts.ext}`
     }
     return this.api.storageLink(
       `${this.token}${suffix}`,
@@ -120,10 +133,5 @@ export class OpFile {
     return `rgb(${this.color_r},${this.color_g},${this.color_b}${
       a ? ',' + (this.color_a! / 255).toFixed(2) : ''
     })`
-  }
-
-  static fromRaw(raw: OpFileRaw): OpFile {
-    const api = new Api('app', '')
-    return new OpFile(api, raw)
   }
 }

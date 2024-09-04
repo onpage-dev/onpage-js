@@ -1,9 +1,11 @@
 import {
   ApiTokenValue,
   FieldID,
+  FilterClause,
   FtpConfigID,
   LegacyTemplateID,
   SchemaID,
+  UserID,
   ViewID,
 } from '.'
 
@@ -23,6 +25,10 @@ export interface PdfGenerator {
   created_at?: string
   updated_at?: string
   ftp_id?: FtpConfigID
+  ftp_path?: string
+  filter?: FilterClause
+  langs?: string[]
   is_simple_filter?: boolean
   auto_detect_changes?: boolean
+  notify?: UserID[]
 }

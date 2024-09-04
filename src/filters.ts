@@ -16,7 +16,7 @@ export const NUMBER_OPERATORS = [
   '>=',
   '<=',
 ] as const
-export type NumberOperator = typeof NUMBER_OPERATORS[number]
+export type NumberOperator = (typeof NUMBER_OPERATORS)[number]
 export const META_NUMBER_OPERATORS = [
   'like',
   '=',
@@ -26,10 +26,10 @@ export const META_NUMBER_OPERATORS = [
   '>=',
   '<=',
 ] as const
-export type MetaNumberOperator = typeof META_NUMBER_OPERATORS[number]
+export type MetaNumberOperator = (typeof META_NUMBER_OPERATORS)[number]
 
 export const STATUS_OPERATORS = ['empty', 'not_empty'] as const
-export type StatusOperators = typeof STATUS_OPERATORS[number]
+export type StatusOperators = (typeof STATUS_OPERATORS)[number]
 
 export const STRING_OPERATORS = [
   'like',
@@ -40,8 +40,10 @@ export const STRING_OPERATORS = [
   'not_like',
   '=',
   '<>',
+  'starts_with',
+  'ends_with'
 ] as const
-export type StringOperator = typeof STRING_OPERATORS[number]
+export type StringOperator = (typeof STRING_OPERATORS)[number]
 
 export const RELATION_OPERATORS = [
   'count_>=',
@@ -51,7 +53,7 @@ export const RELATION_OPERATORS = [
   'count_<=',
   'count_<>',
 ] as const
-export type RelationOperator = typeof RELATION_OPERATORS[number]
+export type RelationOperator = (typeof RELATION_OPERATORS)[number]
 
 export const GENERIC_FIELD_OPERATORS = [
   'empty',
@@ -60,7 +62,7 @@ export const GENERIC_FIELD_OPERATORS = [
   'updated_before',
   'updated_after',
 ] as const
-export type GenericFieldOperator = typeof GENERIC_FIELD_OPERATORS[number]
+export type GenericFieldOperator = (typeof GENERIC_FIELD_OPERATORS)[number]
 
 export const DATE_OPERATORS = [
   'after',
@@ -73,7 +75,7 @@ export const DATE_OPERATORS = [
   'to_the',
   'not_empty',
 ] as const
-export type DateOperator = typeof DATE_OPERATORS[number]
+export type DateOperator = (typeof DATE_OPERATORS)[number]
 
 export const META_DATE_OPERATORS = [
   'after',
@@ -84,10 +86,10 @@ export const META_DATE_OPERATORS = [
   'from',
   'to_the',
 ] as const
-export type MetaDateOperator = typeof META_DATE_OPERATORS[number]
+export type MetaDateOperator = (typeof META_DATE_OPERATORS)[number]
 
 export const BOOL_OPERATORS = ['true', 'false'] as const
-export type BoolOperator = typeof BOOL_OPERATORS[number]
+export type BoolOperator = (typeof BOOL_OPERATORS)[number]
 
 export const AUTHORING_OPERATORS = [
   'after',
@@ -98,7 +100,7 @@ export const AUTHORING_OPERATORS = [
   'from',
   'to_the',
 ] as const
-export type AuthoringOperator = typeof AUTHORING_OPERATORS[number]
+export type AuthoringOperator = (typeof AUTHORING_OPERATORS)[number]
 
 export type Operator =
   | GenericFieldOperator

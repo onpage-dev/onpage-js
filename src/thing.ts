@@ -13,6 +13,7 @@ import {
 } from 'lodash'
 import { stripHtml } from 'string-strip-html'
 import { DataWriter } from './data-writer'
+import { EtimFeature, EtimValueID } from './etim'
 import { Field, FieldFolderID, FieldID, FieldIdentifier } from './field'
 import { OpFile, OpFileRaw } from './file'
 import { LocalApi } from './local-api'
@@ -34,7 +35,93 @@ export type ThingValue =
   | [number, number]
   | [number, number, number]
   | OpFile
+  | ThingValueEtim
 
+export interface ThingValueEtimBase {
+  class_version?: string
+}
+export interface ThingValueEtimSelect extends ThingValueEtimBase {
+  type: 'A'
+  value: EtimValueID
+}
+export interface ThingValueEtimBoolean extends ThingValueEtimBase {
+  type: 'L'
+  value: boolean
+}
+export interface ThingValueEtimNumericReference {
+  field_id: FieldID
+  modifiers?: EtimNumericModifier[]
+}
+export interface ThingValueEtimNumeric extends ThingValueEtimBase {
+  type: 'N'
+  value: number | ThingValueEtimNumericReference
+}
+export type EtimNumericModifier =
+  | EtimNumericModifierArithmetic
+  | EtimNumericModifierRound
+  | EtimNumericModifierDecimals
+export const ETIM_NUMERIC_MODIFIER_ARITHMETIC_OPERATORS = [
+  '+',
+  '-',
+  '*',
+  '/',
+  '%',
+  '**',
+] as const
+export type EtimNumericModifierArithmeticOperator =
+  (typeof ETIM_NUMERIC_MODIFIER_ARITHMETIC_OPERATORS)[number]
+export interface EtimNumericModifierArithmetic {
+  type: 'arithmetic'
+  /**
+   * +  = Addition: Adds value to field's value
+   * -  = Subtraction: Subtracts value from field's value
+   * *  = Moltiplication: Multiplies field's value by value
+   * /  = Division: Divides field's value by value
+   * %  = Modulo: Divides field's value by value and returns the remainder
+   * ** = Exponentiation: Sets field's value exponent
+   */
+  operator: EtimNumericModifierArithmeticOperator
+  value: number
+}
+export interface EtimNumericModifierRound {
+  type: 'round'
+  /** By default follows this rule and rounds to the nearest integer:
+   *  value < 5 rounds downward
+   *  value >= 5 rounds upwards
+   */
+  force_round?: 'upward' | 'downward'
+}
+export interface EtimNumericModifierDecimals {
+  type: 'decimals'
+  /** Number of decimal numbers to show, by default the value will be truncated in this position
+   *  Define an EtimNumericModifierRound if you want the value to be rounded instead
+   */
+  positions: number
+}
+export interface ThingValueEtimRange extends ThingValueEtimBase {
+  type: 'R'
+  min: number
+  max: number
+}
+export interface ThingValueEtim {
+  filters: {
+    groups?: string[]
+    classes?: string[]
+    features?: string[]
+    versions?: string[]
+    values?: 'empty' | 'compiled'
+  }
+  data: ThingValueEtimData
+}
+export type ThingValueEtimDataValue =
+  | ThingValueEtimSelect
+  | ThingValueEtimBoolean
+  | ThingValueEtimNumeric
+  | ThingValueEtimRange
+export type ThingValueEtimData = Record<
+  EtimFeature['id'],
+  ThingValueEtimDataValue
+>
 export type ThingValueForm =
   | boolean
   | string
@@ -42,6 +129,7 @@ export type ThingValueForm =
   | [number, number]
   | [number, number, number]
   | { token: string; name: string }
+  | ThingValueEtim
 
 export interface ThingFullValue<T = ThingValue> {
   lang?: string
@@ -54,6 +142,7 @@ export interface ThingSaveRequest {
   resource?: ResourceIdentifier
   resource_id?: ResourceID
   default_folder_id?: FieldFolderID
+  autotranslate?: boolean
   ignore_folder?: boolean
   data: {
     field: FieldIdentifier
@@ -166,7 +255,18 @@ export class Thing<Structure extends FieldCollection | undefined = undefined> {
     return this.json.rel_ids
   }
   get label(): string {
-    return this.thingSlots().title ?? this.json.label
+    const title = this.thingSlots().title
+    return title.length ? title : this.json.label ?? ''
+  }
+  get label_with_fallback(): string {
+    const title = this.thingSlots().title
+    return title.length
+      ? title
+      : this.json.label?.length
+        ? this.json.label
+        : this.thingSlots({
+          lang: this.schema.default_lang ?? this.schema.langs[0],
+        }).title
   }
   get labels() {
     return this.json.labels
@@ -174,11 +274,14 @@ export class Thing<Structure extends FieldCollection | undefined = undefined> {
   get lang() {
     return this.json.lang
   }
-  get tag_ids() {
+  get tags() {
     return this.json.tags
   }
 
   private _getValue(field: Field, lang: string): ThingValue[] {
+    if (field.name.startsWith('_')) {
+      return [(this.json as any)[field.name.substring(1)]]
+    }
     if (this.computed_values && this.computed_values[field.name]) {
       return this.computed_values[field.name](lang)
     }
@@ -264,7 +367,7 @@ export class Thing<Structure extends FieldCollection | undefined = undefined> {
 
     if (field.isMedia()) {
       values = values.map((v: OpFileRaw) => {
-        return new OpFile(this.schema.api, v)
+        return new OpFile(v, this.schema.api)
       })
     }
 
@@ -286,19 +389,19 @@ export class Thing<Structure extends FieldCollection | undefined = undefined> {
     lang?: string | string[]
   ):
     | (Structure extends undefined
-        ? TV
-        : F extends Field
-        ? TV
-        : F extends keyof Structure
-        ? Structure[F]
-        : TV)
+      ? TV
+      : F extends Field
+      ? TV
+      : F extends keyof Structure
+      ? Structure[F]
+      : TV)
     | undefined {
     return this.values<TV, F>(field_name, lang)[0]
   }
   file<
     F extends Structure extends undefined
-      ? string
-      : KeysOfType<Structure, OpFile>
+    ? string
+    : KeysOfType<Structure, OpFile>
   >(field_name: F | Field, lang?: string): OpFile | undefined {
     const field = this.resolveField(field_name)
     if (!field?.isMedia()) return undefined
@@ -306,8 +409,8 @@ export class Thing<Structure extends FieldCollection | undefined = undefined> {
   }
   files<
     F extends Structure extends undefined
-      ? string
-      : KeysOfType<Structure, OpFile>
+    ? string
+    : KeysOfType<Structure, OpFile>
   >(field_name: F | Field, lang?: string): OpFile[] {
     const field = this.resolveField(field_name)
     if (!field?.isMedia()) return []
@@ -331,11 +434,15 @@ export class Thing<Structure extends FieldCollection | undefined = undefined> {
 
   getRelated(codename: FieldIdentifier): Thing[] | undefined {
     const field: Field | undefined = this.resource().field(codename)
-    if (field && this.schema.api instanceof LocalApi) {
+    const api = this.schema.api
+    if (field && api instanceof LocalApi) {
       // console.log(field.name, this.rel_ids)
-      return this.rel_ids[field.name]
-        ?.map(id => this.schema.find(id)!)
-        .filter(x => x)
+      const ret: Thing[] = []
+      this.rel_ids[field.name].forEach(id => {
+        const t = api.things.get(id)
+        if (t) ret.push(t)
+      })
+      return ret
     } else {
       return this.relations.get(codename.toString())
     }
@@ -434,6 +541,7 @@ export class Thing<Structure extends FieldCollection | undefined = undefined> {
   thingSlots(opts?: {
     formatDate?: (date: string) => string
     formatDateTime?: (date: string) => string
+    lang?: string
   }): {
     title: string
     subtitle?: string
@@ -458,7 +566,7 @@ export class Thing<Structure extends FieldCollection | undefined = undefined> {
       }
       return things
         .map(t =>
-          t.values(final_field_id).map(x => {
+          t.values(final_field_id, opts?.lang).map(x => {
             if (isNumber(x)) {
               if (final_field.type == 'price') {
                 x = formatNumber(x, 2)
@@ -514,7 +622,7 @@ export class Thing<Structure extends FieldCollection | undefined = undefined> {
             return v.join('x')
           }
           if (isObject(v)) {
-            return v.name
+            return (v as any).name
           }
           return ''
         })
@@ -568,9 +676,9 @@ function formatNumber(
       i.substr(j).replace(/(\d{3})(?=\d)/g, '$1' + thousands) +
       (decimalCount
         ? decimal +
-          Math.abs(+amount - +i)
-            .toFixed(decimalCount)
-            .slice(2)
+        Math.abs(+amount - +i)
+          .toFixed(decimalCount)
+          .slice(2)
         : '')
     )
   } catch (e) {

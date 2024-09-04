@@ -9,10 +9,15 @@ export interface ConnectorConfig {
   label: string
   jsonb: GenericConfig
 }
-
+export type GenericConfigMarketID = string
+export interface GenericConfigMarket {
+  id: GenericConfigMarketID
+  label: string
+}
 export interface GenericConfig {
   category_resources: GenericConfigCategory[]
   product_resources: GenericConfigProduct[]
+  markets: GenericConfigMarket[]
 }
 
 export interface GenericConfigJson {
@@ -60,8 +65,20 @@ export type NumberSource =
       content: number
     }
 
-// Files
+// Booleans
+export const BOOLEAN_SOURCE_TYPES = ['field', 'static'] as const
+export type BooleanSourceType = (typeof NUMBER_SOURCE_TYPES)[number]
+export type BooleanSource =
+  | {
+      type: 'field'
+      field: FieldIdentifier
+    }
+  | {
+      type: 'static'
+      content: boolean
+    }
 
+// Files
 export const FILE_SOURCE_TYPES = [
   'field',
   'static',
@@ -107,8 +124,10 @@ export type FileSource = ImageSource
 export type RelationSource = FieldIdentifier[]
 
 export type ConnectorConfigID = number
+export type GenericConfigCategoryID = string
 
 export interface GenericConfigCategory {
+  id: GenericConfigCategoryID
   resource: ResourceIdentifier
   name_field: Array<StringSource>
   seo_title_field?: Array<StringSource>
@@ -117,6 +136,7 @@ export interface GenericConfigCategory {
   tax_profile?: Array<StringSource>
   image_field?: Array<ImageSource>
   parent_field?: RelationSource
+  slug_field?: Array<StringSource>
 }
 export interface GenericConfigAttributeOptionGenerator {
   relation?: RelationSource
@@ -131,27 +151,40 @@ export interface GenericConfigAttribute {
   source: GenericConfigAttributeOptionGenerator
 }
 
+export type MarketsMapping = Record<
+  GenericConfigMarketID,
+  {
+    price_field: NumberSource
+    is_visible?: BooleanSource
+  }
+>
 export interface GenericConfigProductVariant {
   relation: RelationSource
   empty_policy?: { type: 'send-simple' }
-  price_field: NumberSource
+  markets_mapping: MarketsMapping
   quantity_field?: NumberSource
   sku_field: Array<StringSource>
   attributes: GenericConfigAttribute[]
   image_field?: Array<ImageSource>
+  name_field: Array<StringSource>
+  slug_field?: Array<StringSource>
 }
+export type GenericConfigProductID = string
 export interface GenericConfigProduct {
+  id: GenericConfigProductID
   resource: ResourceIdentifier
   filter?: QueryFilter
   sku_field: Array<StringSource>
-  price_field: NumberSource
-  quantity_field?: NumberSource
   variants?: GenericConfigProductVariant
   attributes: GenericConfigAttribute[]
   parent_field?: RelationSource
+  quantity_field?: NumberSource
   name_field: Array<StringSource>
+  weight_field?: Array<NumberSource>
   image_field?: Array<ImageSource>
   description_field?: Array<StringSource>
   seo_title_field?: Array<StringSource>
   seo_description_field?: Array<StringSource>
+  markets_mapping: MarketsMapping
+  slug_field?: Array<StringSource>
 }

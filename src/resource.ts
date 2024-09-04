@@ -6,26 +6,31 @@ import {
   isNumber,
   isString,
   isSymbol,
-  uniqBy,
 } from 'lodash'
 import { DataWriter } from './data-writer'
 import {
   Field,
   FieldFolder,
   FieldFolderID,
-  FieldFolderJson,
   FieldID,
   FieldIdentifier,
 } from './field'
-import { FilterID, FilterLabel } from './filters'
+import {
+  FilterClause,
+  FilterID,
+  FilterLabel,
+  createFilterGroup,
+} from './filters'
 import { LegacyTemplate } from './legacy-template'
 import { FieldCollection } from './misc'
-import { FieldQuery, Query, QueryFilter, SimpleFieldClause } from './query'
+import { FieldQuery, Query, QueryFilter } from './query'
+import { FolderViewJson } from './resource-viewer-folders'
 import { PivotViewJson } from './resource-viewer-pivot'
 import { Robot } from './robot'
-import { FieldJson, ResourceJson, Schema } from './schema'
+import { FieldJson, IdMetaField, ResourceJson, Schema, THING_META_FIELDS } from './schema'
 import { SchemaService } from './schema-service'
 import { Thing, ThingID } from './thing'
+import { MetaField } from './fields'
 export type ResourceID = number
 export type ResourceName = string
 export type ResourceIdentifier = ResourceID | ResourceName
@@ -78,7 +83,7 @@ export class ResourceSlotsService extends SchemaService<ResourceSlot> {
   }
 }
 export class SlotManager {
-  constructor(private resource: Resource) {}
+  constructor(private resource: Resource) { }
 
   get title_slots(): ResourceSlotNonFilter[] {
     if (this.resource.slots_raw?.title) {
@@ -87,15 +92,15 @@ export class SlotManager {
     const field = this.resource.fields.find(x => x.is_textual)
     return field
       ? [
-          {
-            type: 'title',
-            resource_id: this.resource.id,
-            labels: {},
-            path: [field.id],
-            id: undefined!,
-            opts: {},
-          },
-        ]
+        {
+          type: 'title',
+          resource_id: this.resource.id,
+          labels: {},
+          path: [field.id],
+          id: undefined!,
+          opts: {},
+        },
+      ]
       : []
   }
   get subtitle_slots(): ResourceSlotNonFilter[] {
@@ -114,86 +119,97 @@ export class SlotManager {
     const field = this.resource.fields.find(x => x.type == 'image')
     return field
       ? [
-          {
-            type: 'cover',
-            resource_id: this.resource.id,
-            labels: {},
-            path: [field.id],
-            id: undefined!,
-            opts: {},
-          },
-        ]
+        {
+          type: 'cover',
+          resource_id: this.resource.id,
+          labels: {},
+          path: [field.id],
+          id: undefined!,
+          opts: {},
+        },
+      ]
       : []
   }
 
   queryFields(): FieldQuery[] {
     const ret: FieldQuery[] = []
-    this.title_slots.forEach(slot =>
-      Query.addPathToFieldQueries(
-        ret,
-        this.resource.resolveFieldPath(slot.path)
-      )
-    )
-    this.subtitle_slots.forEach(slot =>
-      Query.addPathToFieldQueries(
-        ret,
-        this.resource.resolveFieldPath(slot.path)
-      )
-    )
-    this.info_slots.forEach(slot =>
-      Query.addPathToFieldQueries(
-        ret,
-        this.resource.resolveFieldPath(slot.path)
-      )
-    )
-    this.cover_slots.forEach(slot =>
-      Query.addPathToFieldQueries(
-        ret,
-        this.resource.resolveFieldPath(slot.path)
-      )
-    )
+    const add = (path: FieldID[]) => {
+      if (this.isPathValid(path)) Query.addPathToFieldQueries(ret, path)
+    }
+    this.title_slots.forEach(slot => add(slot.path))
+    this.subtitle_slots.forEach(slot => add(slot.path))
+    this.info_slots.forEach(slot => add(slot.path))
+    this.cover_slots.forEach(slot => add(slot.path))
     return ret
   }
 
-  queryFilters(query: string): QueryFilter {
-    const clauses: SimpleFieldClause[] = []
+  generateQueryFromPath(path: FieldID[], query: string): FilterClause[] {
+    const field = this.resource.schema().field(path[0])
+    if (!field) return []
 
+    if (path.length == 1) {
+      return [
+        {
+          type: 'field',
+          field: path[0],
+          resource_id: this.resource.id,
+          lang: this.resource.schema().lang,
+          operator: 'like',
+          value: query,
+        },
+      ]
+    }
+
+    return [
+      {
+        type: 'group',
+        resource_id: field.resource().id,
+        relation: {
+          field: field.id,
+          operator: 'count_>=',
+          value: 1,
+        },
+        children: this.generateQueryFromPath(path.slice(1), query),
+      },
+    ]
+  }
+  queryFilters(query: string): QueryFilter {
+    const f = createFilterGroup(this.resource.id)
+    f.is_or = true
+
+    // createFilterGroup(this.resource.id)
     this.title_slots.forEach(slot => {
       if (this.isPathValid(slot.path)) {
-        clauses.push([slot.path?.join('.') ?? '', 'like', query])
+        f.children.push(...this.generateQueryFromPath(slot.path, query))
       }
     })
     this.subtitle_slots.forEach(slot => {
       if (this.isPathValid(slot.path)) {
-        clauses.push([slot.path?.join('.') ?? '', 'like', query])
+        f.children.push(...this.generateQueryFromPath(slot.path, query))
       }
     })
     this.info_slots.forEach(slot => {
       if (this.isPathValid(slot.path)) {
-        clauses.push([slot.path?.join('.') ?? '', 'like', query])
+        f.children.push(...this.generateQueryFromPath(slot.path, query))
       }
     })
-    let filter: QueryFilter = ['_or']
-    filter = filter.concat(uniqBy(clauses, f => f[0]))
 
     // If query is number search ThingID
     if (!isNaN(Number(query))) {
-      filter.push({
+      f.children.push({
         field: '_id',
         operator: '=',
         resource_id: this.resource.id,
         type: 'field',
         value: query,
-      } as any)
+      })
     }
-    return filter
+    return f
   }
 
   private isPathValid(path?: FieldID[]) {
     if (!path) return false
-    return !path
-      .map(f_id => !!this.resource.schema().field(f_id))
-      .includes(false)
+    return !path.some(f_id => !this.resource.schema().field(f_id))
   }
 }
 
@@ -257,7 +273,8 @@ export class Resource<
     return (
       this.labels[lang] ??
       this.labels[this._schema.lang] ??
-      this.labels[this._schema.default_lang]
+      this.labels[this._schema.default_lang] ??
+      ''
     )
   }
   get name(): ResourceName {
@@ -274,19 +291,6 @@ export class Resource<
   }
   get folders(): FieldFolder[] {
     return this.json.folders ?? []
-  }
-  get robots(): Robot[] {
-    return this.json.robots ?? []
-  }
-  get templates(): LegacyTemplate[] {
-    return (this.json.templates ?? []).filter(
-      (x: LegacyTemplate) => !x.archived_at
-    )
-  }
-  get archived_templates(): LegacyTemplate[] {
-    return (this.json.templates ?? []).filter(
-      (x: LegacyTemplate) => x.archived_at
-    )
   }
   get type(): string | undefined {
     return this.json.type
@@ -317,6 +321,15 @@ export class Resource<
       if (typeof id === 'number') {
         return this.id_to_field.get(id)
       } else {
+        if (id[0] == '_') {
+          if (THING_META_FIELDS[id as MetaField]) {
+            return new Field(this._schema, Object.assign({
+              resource_id: this.id,
+            }, THING_META_FIELDS[id as MetaField]))
+          } else {
+            throw new Error(`Field "${id}" not supported`)
+          }
+        }
         return this.name_to_field.get(id)
       }
     }
@@ -427,7 +440,7 @@ export class Resource<
   }
 
   async saveFieldFolder(
-    form: Partial<FieldFolderJson>,
+    form: Partial<FolderViewJson>,
     refresh = true
   ): Promise<FieldFolderID> {
     form.resource_id = this.id

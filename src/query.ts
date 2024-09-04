@@ -13,12 +13,14 @@ import { Resource } from './resource'
 import { TableViewID, TableViewJson } from './resource-viewer-table'
 import { Schema } from './schema'
 import { Thing, ThingID, ThingValue } from './thing'
+import { ViewID } from './view'
 
 export type ReturnType =
   | 'list'
   | 'first'
   | 'paginate'
   | 'excel'
+  | 'etim-excel'
   | 'csv'
   | 'delete'
   | 'ids'
@@ -91,6 +93,7 @@ export interface ThingsRequestBody {
   as?: string
   _method?: 'get' | 'post' | 'delete'
   is_trash?: boolean
+  view_id?: ViewID
 }
 export interface OrderBy {
   field: FieldIdentifier
@@ -280,26 +283,23 @@ export class FilterHelper {
 
   static addPathToFieldQueries(
     parent: FieldQuery[],
-    path?: Field[],
+    path?: FieldID[],
     limit?: number
   ) {
     if (!path?.length) return
     const next_field = path[0]
     if (path.length == 1) {
-      parent.push(next_field.id)
+      parent.push(next_field)
     } else {
       let group = parent.find(
-        f =>
-          isObject(f) &&
-          !isArray(f) &&
-          (f.field == next_field.id || f.field == next_field.name)
+        f => isObject(f) && !isArray(f) && f.field == next_field
       ) as FieldQueryGroup | undefined
       if (!group) {
         group = {
-          field: next_field.id,
+          field: next_field,
           fields: [],
           limit,
-          as: String(next_field.id),
+          as: String(next_field),
         }
         parent.push(group)
       }
@@ -327,7 +327,11 @@ export class Query<
   }
 
   get api() {
-    return this.resource.is_virtual ? this.schema.local_api : this.schema.api
+    return this.schema.api
+  }
+
+  toJson(ret?: ReturnType) {
+    return JSON.stringify(this.build(ret))
   }
 
   getFilters(include_related_to = false): QueryFilter[] {
@@ -376,8 +380,8 @@ export class Query<
     }
     return this
   }
-  loadSlotFields(): Query {
-    this.setFields(this.resource.slots.queryFields())
+  loadSlotFields(append = false): Query {
+    this.setFields(this.resource.slots.queryFields(), append)
     return this
   }
   addField(field: FieldQuery): Query {
@@ -431,11 +435,11 @@ export class Query<
       order_by: this.order_by,
       limit: this.result_limit,
       offset: this.result_offset,
+      view_id: this.schema.view_id,
     }
     if (this.type.type == 'root') {
       data.is_trash = this.trash
       data.options = {}
-      Object.assign(data.options, this.type.options)
       Object.assign(data.options, {
         no_labels: true,
         hyper_compact: true,
@@ -443,6 +447,7 @@ export class Query<
         use_field_names: true,
         load_image_thumbnail: this.schema.options.preload_thumbnails,
       })
+      Object.assign(data.options, this.type.options)
       data.langs = this.type.langs ?? this.schema.langs
       data.return = ret!
       if (ret == 'delete') {
@@ -657,9 +662,11 @@ export interface QueryPagination {
   per_page: number
 }
 export interface QueryOptions {
+  refresh_trigger?: number
   with_parent_badge?: boolean
   with_tags?: boolean
   with_table_configs?: boolean
+  with_author?: boolean
   no_labels?: boolean
   hyper_compact?: boolean
   hyper_compact_use_array?: boolean

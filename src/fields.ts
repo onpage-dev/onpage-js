@@ -1,5 +1,11 @@
-export const META_FIELDS = ['_id', '_created_at', '_updated_at'] as const
-export type MetaField = typeof META_FIELDS[number]
+export const META_FIELDS = [
+  '_id',
+  '_created_at',
+  '_updated_at',
+  '_folder_id',
+  '_deleted_at',
+] as const
+export type MetaField = (typeof META_FIELDS)[number]
 
 const DIM2_FIELDS = [
   {
@@ -11,7 +17,7 @@ const DIM2_FIELDS = [
     label: 'y',
   },
 ]
-export type Dim2Field = typeof DIM2_FIELDS[number]
+export type Dim2Field = (typeof DIM2_FIELDS)[number]
 
 const DIM3_FIELDS = [
   {
@@ -27,7 +33,7 @@ const DIM3_FIELDS = [
     label: 'z',
   },
 ]
-export type Dim3Field = typeof DIM3_FIELDS[number]
+export type Dim3Field = (typeof DIM3_FIELDS)[number]
 
 const FILE_FIELDS = [
   {
@@ -39,7 +45,7 @@ const FILE_FIELDS = [
     label: 'token',
   },
 ]
-export type FileField = typeof FILE_FIELDS[number]
+export type FileField = (typeof FILE_FIELDS)[number]
 
 const STRING_FIELDS = null
 const NUMBER_FIELDS = null

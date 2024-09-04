@@ -1,22 +1,55 @@
 import { FullCompanyInfo } from './company'
+import { OpFileRaw } from './file'
 import { RoleInterface } from './role'
 import { SchemaID } from './schema'
 
-export const OAUTH_PROVIDERS = ['google'] as const
-export type OAuthProvider = (typeof OAUTH_PROVIDERS)[number]
 export type UserID = number
 
-export interface UserInfo {
+export interface Administrator extends UserInfo {
+  expires_at?: string
+}
+export interface UserBase {
   id: UserID
-  name: string
+  first_name: string
+  last_name: string
+  job_title?: string
   email: string
+  avatar?: OpFileRaw
+  /** Phone number used to call the user */
+  contact_phone?: string
+  /** Phone internal number */
+  contact_phone_int?: string
+  /** Phone number used for 2FA */
+  telephone: string
+  legal_entity_id?: number
+  created_at: string
+  updated_at: string
+}
+export interface UserForm extends UserBase {
+  password?: string
+  __password?: string
+  old_password?: string
+}
+export interface UserInfo extends UserBase {
+  /** Generated first_name + last_name */
+  name: string
   is_registered: boolean
   is_online: boolean
   is_pro: boolean
-  telephone?: string
+  is_partner: boolean
   last_seen?: string
-  created_at: string
-  updated_at: string
+  /** Represents where the user is enabled (admin or in a role) */
+  schema_ids?: SchemaID[]
+}
+export interface FullUserInfo extends UserInfo {
+  companies: FullCompanyInfo[]
+  roles: { [key: number]: RoleInterface } | RoleInterface[]
+  auths: { [key: number]: { [key: string]: number } }
+  opts: { [key: string]: any }
+  ip_whitelist?: any[]
+  admins?: any[]
+  access_requests: AccessRequest[]
+  social_logins?: UserOAuthLogin[]
 }
 
 export interface AccessRequest {
@@ -27,7 +60,6 @@ export interface AccessRequest {
   created_at: string
   updated_at: string
 }
-
 export interface FullAccessRequest {
   id: number
   schema_id: SchemaID
@@ -36,18 +68,9 @@ export interface FullAccessRequest {
   updated_at: string
 }
 
-export interface FullUserInfo extends UserInfo {
-  companies: FullCompanyInfo[]
-  roles: { [key: number]: RoleInterface } | RoleInterface[]
-  auths: { [key: number]: { [key: string]: number } }
-  opts: { [key: string]: any }
-  ip_whitelist?: any[]
-  admins?: any[]
-  access_requests: AccessRequest[]
-  social_logins?: UserSocialLogin[]
-}
-
-export interface UserSocialLogin {
+export const OAUTH_PROVIDERS = ['google', 'microsoft', 'github'] as const
+export type OAuthProvider = string | (typeof OAUTH_PROVIDERS)[number]
+export interface UserOAuthLogin {
   id: number
   provider: OAuthProvider
   remote_id: string

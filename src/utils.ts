@@ -1,3 +1,5 @@
+import { isUndefined, isNull, isNumber, isBoolean, isEmpty } from 'lodash'
+
 export function bench<T>(label: string, cb: () => T): T {
   console.time(label)
   const res = cb()
@@ -23,8 +25,12 @@ export function deepFreeze(o: any) {
   return o
 }
 
-export function isNullOrEmpty(x: any) {
-  return x === null || x === undefined || x === ''
+export function isNullOrUndefined(x: any): x is undefined | null {
+  return isUndefined(x) || isNull(x)
+}
+export function isNullOrEmpty(x: any): x is undefined | null | boolean {
+  if (isNumber(x) || isBoolean(x)) return false
+  return isNullOrUndefined(x) || isEmpty(x)
 }
 
 export function throwError(message: string): never {

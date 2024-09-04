@@ -11,6 +11,7 @@ export interface ApiTokenBase {
   id: ApiTokenID
   schema_id: SchemaID
   label: string
+  description?: string
   is_readonly: boolean
   instant?: string
   view_id?: ViewID
@@ -25,6 +26,7 @@ export interface ApiTokenBase {
   stats_usage_24h?: number
   stats_usage_week?: number
   filters: GroupClause[]
+  notify_email_whitelist: string[]
 }
 export type ApiTokenApi = ApiTokenBase & {
   type: 'api'

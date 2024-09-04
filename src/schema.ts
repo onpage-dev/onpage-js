@@ -1,33 +1,34 @@
 import { clone, cloneDeep } from 'lodash'
 import mitt, { Emitter } from 'mitt'
-//import { getSchemaService } from '/home/giorgio/op/ui/onpage-ui/src/utilities/schema-loader' //TODO how to use
 import {
   Api,
+  ApiOptions,
   Author,
   FieldType,
   FieldVisibilityType,
+  MetaField,
   OpFile,
   OpFileRaw,
   ResourceName,
   ResourceSlotsResponse,
+  ViewID
 } from '.'
 import { Backend } from './backend'
 
 import { SchemaEvents } from './events'
 import { Field, FieldID } from './field'
 import { LocalApi } from './local-api'
-import { LocalStorage } from './local-storage'
 import { FieldCollection } from './misc'
 import { Query } from './query'
 import { Resource, ResourceID, ResourceIdentifier } from './resource'
 import { FolderViewID } from './resource-viewer-folders'
-import { Thing, ThingID, ThingParent, ThingValue } from './thing'
+import { TableConfigID, Thing, ThingID, ThingParent, ThingValue } from './thing'
 
 export type SchemaID = number
 
 interface JsonBase {
-  created_at?: string
-  updated_at?: string
+  created_at: string
+  updated_at: string
 }
 export interface FieldJson extends JsonBase {
   id: FieldID
@@ -51,6 +52,7 @@ export interface FieldJson extends JsonBase {
   description?: string
   descriptions: { [key: string]: string }
   visibility?: FieldVisibilityType
+  deleted_at?: string
 }
 export interface ResourceJson extends JsonBase {
   id: ResourceID
@@ -64,8 +66,6 @@ export interface ResourceJson extends JsonBase {
   filters?: any
   domain?: any
   folders?: any
-  robots?: any
-  templates?: any
   table_configs?: any
   label?: string
   labels: { [key: string]: string }
@@ -82,11 +82,11 @@ export interface ThingJson extends JsonBase {
   resource_id: ResourceID
   deleted_at?: string
   default_folder_id?: FolderViewID
-  table_configs?: any[]
+  table_configs?: { [key: number]: TableConfigID }
   parent_count?: number
   author?: Author
   deletor?: Author
-  tags?: number[]
+  tags?: { id: number; title: string }[]
   lang?: string
 }
 export interface SchemaJson extends JsonBase {
@@ -97,13 +97,135 @@ export interface SchemaJson extends JsonBase {
   copy_status?: string
   usage_stats?: any
   langs: string[]
-  libs?: any[]
   default_lang: string
   resources: ResourceJson[]
+}
+export interface SerializedDataJson {
+  schema: SchemaJson,
+  things: ThingJson[],
 }
 
 // Custom models
 let GLOBAL_IDS = 1
+export const IdMetaField: FieldJson = {
+  id: GLOBAL_IDS++,
+  resource_id: 0,
+  type: 'int',
+  name: '_id',
+  labels: {
+    it: 'Identificativo',
+    en: 'Identifier',
+  },
+  descriptions: {},
+  description: '',
+  is_label: false,
+  is_multiple: false,
+  is_textual: true,
+  is_translatable: false,
+  is_unique: false,
+  label: '',
+  opts: {},
+  order: 0,
+  created_at: '2000-01-01 00:00:00',
+  updated_at: '2000-01-01 00:00:00',
+}
+export const FolderIdMetaField: FieldJson = {
+  id: GLOBAL_IDS++,
+  resource_id: 0,
+  type: 'int',
+  name: '_folder_id',
+  labels: {
+    it: 'Gruppo di campi',
+    en: 'Field folder',
+  },
+  descriptions: {},
+  description: '',
+  is_label: false,
+  is_multiple: false,
+  is_textual: true,
+  is_translatable: false,
+  is_unique: false,
+  label: '',
+  opts: {},
+  order: 0,
+  created_at: '2000-01-01 00:00:00',
+  updated_at: '2000-01-01 00:00:00',
+}
+export const CreatedAtMetaField: FieldJson = {
+  id: GLOBAL_IDS++,
+  resource_id: 0,
+  type: 'datetime',
+  name: '_created_at',
+  labels: {
+    it: 'Data di creazione',
+    en: 'Creation date',
+  },
+  descriptions: {},
+  description: '',
+  is_label: false,
+  is_multiple: false,
+  is_textual: true,
+  is_translatable: false,
+  is_unique: false,
+  label: '',
+  opts: {},
+  order: 0,
+  created_at: '2000-01-01 00:00:00',
+  updated_at: '2000-01-01 00:00:00',
+}
+export const UpdatedAtMetaField: FieldJson = {
+  id: GLOBAL_IDS++,
+  resource_id: 0,
+  type: 'datetime',
+  name: '_updated_at',
+  labels: {
+    it: 'Ultima modifica',
+    en: 'Last edit',
+  },
+  descriptions: {},
+  description: '',
+  is_label: false,
+  is_multiple: false,
+  is_textual: true,
+  is_translatable: false,
+  is_unique: false,
+  label: '',
+  opts: {},
+  order: 0,
+  created_at: '2000-01-01 00:00:00',
+  updated_at: '2000-01-01 00:00:00',
+}
+export const DeletedAtMetaField: FieldJson = {
+  id: GLOBAL_IDS++,
+  resource_id: 0,
+  type: 'datetime',
+  name: '_deleted_at',
+  labels: {
+    it: 'Data di eliminazione',
+    en: 'Elimination date',
+  },
+  descriptions: {},
+  description: '',
+  is_label: false,
+  is_multiple: false,
+  is_textual: true,
+  is_translatable: false,
+  is_unique: false,
+  label: '',
+  opts: {},
+  order: 0,
+  created_at: '2000-01-01 00:00:00',
+  updated_at: '2000-01-01 00:00:00',
+}
+
+export const THING_META_FIELDS: Record<MetaField, FieldJson> = {
+  '_id': IdMetaField,
+  '_created_at': CreatedAtMetaField,
+  '_updated_at': UpdatedAtMetaField,
+  '_deleted_at': DeletedAtMetaField,
+  '_folder_id': FolderIdMetaField,
+}
+
 export const IdField: FieldJson = {
   id: GLOBAL_IDS++,
   resource_id: 0,
@@ -111,6 +233,7 @@ export const IdField: FieldJson = {
   name: 'id',
   labels: {
     it: 'Identificativo',
+    en: 'Identifier',
   },
   descriptions: {},
   description: '',
@@ -122,6 +245,8 @@ export const IdField: FieldJson = {
   label: '',
   opts: {},
   order: 0,
+  created_at: '2000-01-01 00:00:00',
+  updated_at: '2000-01-01 00:00:00',
 }
 export const NameField: FieldJson = {
   id: GLOBAL_IDS++,
@@ -129,7 +254,8 @@ export const NameField: FieldJson = {
   type: 'string',
   name: 'name',
   labels: {
-    it: 'Name',
+    it: 'Nome',
+    en: 'Name',
   },
   descriptions: {},
   description: '',
@@ -141,6 +267,8 @@ export const NameField: FieldJson = {
   label: '',
   opts: {},
   order: 0,
+  created_at: '2000-01-01 00:00:00',
+  updated_at: '2000-01-01 00:00:00',
 }
 export const LabelField: FieldJson = {
   id: GLOBAL_IDS++,
@@ -149,6 +277,7 @@ export const LabelField: FieldJson = {
   name: 'label',
   labels: {
     it: 'Label',
+    en: 'Label',
   },
   descriptions: {},
   description: '',
@@ -160,26 +289,34 @@ export const LabelField: FieldJson = {
   label: '',
   opts: {},
   order: 0,
+  created_at: '2000-01-01 00:00:00',
+  updated_at: '2000-01-01 00:00:00',
 }
 export const SchemasResourceJson: ResourceJson = {
   id: GLOBAL_IDS++,
   name: '_schemas',
   labels: {
     it: 'Progetti',
+    en: 'Projects',
   },
   descriptions: {},
   fields: [IdField, LabelField],
   opts: {},
+  created_at: '2000-01-01 00:00:00',
+  updated_at: '2000-01-01 00:00:00',
 }
 export const ResourcesResourceJson: ResourceJson = {
   id: GLOBAL_IDS++,
   name: '_resources',
   labels: {
     it: 'Raccolte',
+    en: 'Resources',
   },
   descriptions: {},
   fields: [IdField, NameField, LabelField],
   opts: {},
+  created_at: '2000-01-01 00:00:00',
+  updated_at: '2000-01-01 00:00:00',
 }
 
 export class SchemaThing extends Thing {
@@ -190,6 +327,8 @@ export class SchemaThing extends Thing {
       rel_ids: {},
       relations: {},
       resource_id: SchemasResourceJson.id,
+      created_at: _value.getJson().created_at,
+      updated_at: _value.getJson().updated_at,
     })
     this.computed_values = {
       id: () => [_value.id],
@@ -205,6 +344,8 @@ export class ResourceThing extends Thing {
       rel_ids: {},
       relations: {},
       resource_id: ResourcesResourceJson.id,
+      created_at: _value.getJson().created_at,
+      updated_at: _value.getJson().updated_at,
     })
     this.computed_values = {
       id: () => [_value.id],
@@ -222,14 +363,13 @@ export class Schema {
     preload_thumbnails: boolean
   }> = {}
   public lang: string
+  public view_id?: ViewID
   public fallback_lang?: string
   private json!: SchemaJson
-  public local_api: LocalApi
   public readonly bus: Emitter<SchemaEvents> = mitt<SchemaEvents>()
-  constructor(public api: Backend, json: any) {
+  constructor(public api: Backend, json: SchemaJson) {
     this.setJson(json)
     this.lang = this.default_lang
-    this.local_api = new LocalApi(this)
   }
 
   get id(): SchemaID {
@@ -259,15 +399,15 @@ export class Schema {
   get langs(): string[] {
     return this.json.langs
   }
-  get libs() {
-    return this.json.libs
-  }
   getJson(clone = true) {
     return clone ? cloneDeep(this.json) : this.json
   }
 
   async refresh(): Promise<Schema> {
-    const res = await this.api.schemaRequest(this.id)
+    const res = await this.api.schemaRequest({
+      schema_id: this.id,
+      view_id: this.view_id,
+    })
     this.setJson(res, true)
     return this
   }
@@ -317,7 +457,7 @@ export class Schema {
   }
 
   public hydrateFile(file_raw: OpFileRaw) {
-    return new OpFile(this.api, file_raw)
+    return new OpFile(file_raw, this.api)
   }
 
   async saveResource(
@@ -339,34 +479,34 @@ export class Schema {
   resource(id?: ResourceIdentifier): Resource | undefined {
     if (!id) return
 
-    if (SchemasResourceJson.id === id || SchemasResourceJson.name === id) {
-      if (this.meta.has(SchemasResourceJson.name)) {
-        return this.meta.get(SchemasResourceJson.name)
-      }
+    // if (SchemasResourceJson.id === id || SchemasResourceJson.name === id) {
+    //   if (this.meta.has(SchemasResourceJson.name)) {
+    //     return this.meta.get(SchemasResourceJson.name)
+    //   }
 
-      const res = new Resource(this, SchemasResourceJson)
-      this.meta.set(res.name, res)
+    //   const res = new Resource(this, SchemasResourceJson)
+    //   this.meta.set(res.name, res)
 
-      const res_thing = new SchemaThing(this)
-      this.cached_things.set(res_thing.id, res_thing)
+    //   const res_thing = new SchemaThing(this)
+    //   this.local_api.things.set(res_thing.id, res_thing)
 
-      return res
-    }
-    if (ResourcesResourceJson.id === id || ResourcesResourceJson.name === id) {
-      if (this.meta.has(ResourcesResourceJson.name)) {
-        return this.meta.get(ResourcesResourceJson.name)
-      }
+    //   return res
+    // }
+    // if (ResourcesResourceJson.id === id || ResourcesResourceJson.name === id) {
+    //   if (this.meta.has(ResourcesResourceJson.name)) {
+    //     return this.meta.get(ResourcesResourceJson.name)
+    //   }
 
-      const res = new Resource(this, ResourcesResourceJson)
-      this.meta.set(res.name, res)
+    //   const res = new Resource(this, ResourcesResourceJson)
+    //   this.meta.set(res.name, res)
 
-      this.resources.forEach(real_res => {
-        const res_thing = new ResourceThing(real_res)
-        this.cached_things.set(res_thing.id, res_thing)
-      })
+    //   this.resources.forEach(real_res => {
+    //     const res_thing = new ResourceThing(real_res)
+    //     this.local_api.things.set(res_thing.id, res_thing)
+    //   })
 
-      return res
-    }
+    //   return res
+    // }
 
     if (typeof id == 'string' && parseInt(id)) {
       id = parseInt(id)
@@ -403,62 +543,55 @@ export class Schema {
     return labels[this.lang] ?? labels[this.langs[0]] ?? ''
   }
 
-  // The cache
-  find(id: ThingID): Thing | undefined {
-    return this.cached_things.get(id)
+  static async load(options: ApiOptions): Promise<Schema> {
+    const api = new Api(options)
+    return await api.loadSchema()
   }
 
-  cached_things: Map<ThingID, Thing> = Object.freeze(new Map())
-  cacheThing(json: ThingJson) {
-    this.cached_things.set(json.id, this.hydrateThing(json))
-  }
-
-  store(name: string, storage?: typeof LocalStorage) {
-    storage = storage ?? LocalStorage
-    storage.set(`${name}_schema`, this.getJson())
-    const json: ThingJson[] = [...this.cached_things.values()].map(t =>
-      t.getJson()
-    )
-    storage.set(`${name}_things`, json)
-  }
-  static load(name: string, storage?: typeof LocalStorage): Schema {
-    storage = storage ?? LocalStorage
-    const json = storage.get(`${name}_schema`) as SchemaJson
-    const api = new LocalApi(json)
-    const things = storage.get(`${name}_things`) as ThingJson[]
-    things.forEach(t => {
-      api.schema.cacheThing(t)
-    })
+  static fromSnapshot(data: SerializedDataJson): Schema {
+    const api = new LocalApi(data.schema, data.things)
     return api.schema
   }
-  goOffline() {
-    this.api = new LocalApi(this)
+
+  async createSnapshot(): Promise<SerializedDataJson> {
+    (window as any).Schema = Schema
+    return {
+      schema: this.getJson(),
+      things: await this.downloadThings(),
+    }
   }
-  goOnline(api_url: string, token: string, is_user_mode?: boolean) {
-    const api = new Api(api_url, token, is_user_mode)
+
+  goOffline(things: ThingJson[]) {
+    this.api = new LocalApi(this.getJson(), things)
+  }
+
+  goOnline(options: ApiOptions) {
+    const api = new Api(options)
     api.setupForProject(this)
     this.api = api
   }
 
-  async cacheThings(q?: Resource | Query): Promise<any> {
+  async downloadThings(q?: Resource | Query): Promise<ThingJson[]> {
     if (!q) {
-      return await Promise.all(
-        this.resources.map(async x => await this.cacheThings(x))
-      )
+      return (await Promise.all(
+        this.resources.flatMap(x => this.downloadThings(x))
+      )).flat()
     }
     if (q instanceof Resource) {
-      return await this.cacheThings(q.query())
+      return await this.downloadThings(q.query())
     }
 
     let loaded_things = 0
     q.setFields(q.resource.fields.map(x => x.name))
     const chunk_size = 5000
+    const ret = []
     while (true) {
       const chunk = await q.offset(loaded_things).limit(chunk_size).all()
       loaded_things += chunk.length
-      console.log('Downloaded', q.resource.label, '...', loaded_things)
-      chunk.forEach(x => this.cacheThing(x.getJson()))
+      // console.log('Downloaded', q.resource.label, '...', loaded_things)
+      ret.push(...chunk.map(x => x.getJson()))
       if (chunk.length < 5000) break
     }
+    return ret
   }
 }

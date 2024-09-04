@@ -1,6 +1,6 @@
 import { cloneDeep } from 'lodash'
-import { Field, FieldFolder, Resource, ResourceID } from '.'
-import { CompanyID, CompanyInfo } from './company'
+import { Field, FieldFolder, FolderView, Resource, ResourceID } from '.'
+import { CompanyID } from './company'
 import { DMSettingsID, ResourceSettings } from './dm-settings'
 import { Schema, SchemaID } from './schema'
 import { SchemaService } from './schema-service'
@@ -8,64 +8,48 @@ import { UserID, UserInfo } from './user'
 import { ViewID } from './view'
 
 export type RoleInterfaceID = number
-export const ROLE_AUTH_OPTIONS = [
-  'tree',
-  'data',
-  'publishing',
-  'translator',
-  'users',
-  'filesystem',
-  'offers',
-  'links',
-  'tags',
-  'robots',
-  'public',
-] as const
-export type RoleAuthOption = typeof ROLE_AUTH_OPTIONS[number]
-export type RoleAuth = {
-  [key in RoleAuthOption]?: 1 | 2 | boolean
-}
 
 export const STANDARD_PERMISSIONS = ['add', 'edit', 'sort', 'delete'] as const
-export type StandardPermission = typeof STANDARD_PERMISSIONS[number]
+export type StandardPermission = (typeof STANDARD_PERMISSIONS)[number]
 export type StandardPermissions = { [key in StandardPermission]?: boolean }
 
 export const ADD_DELETE_PERMISSIONS = ['add', 'delete'] as const
-export type AddDeletePermission = typeof ADD_DELETE_PERMISSIONS[number]
+export type AddDeletePermission = (typeof ADD_DELETE_PERMISSIONS)[number]
 export type AddDeletePermissions = { [key in AddDeletePermission]?: boolean }
 
 export const EDIT_DELETE_PERMISSIONS = ['edit', 'delete'] as const
-export type EditDeletePermission = typeof EDIT_DELETE_PERMISSIONS[number]
+export type EditDeletePermission = (typeof EDIT_DELETE_PERMISSIONS)[number]
 export type EditDeletePermissions = { [key in EditDeletePermission]?: boolean }
 
 export const EDIT_DELETE_SHOW_PERMISSIONS = ['edit', 'delete', 'show'] as const
 export type EditDeleteShowPermission =
-  typeof EDIT_DELETE_SHOW_PERMISSIONS[number]
+  (typeof EDIT_DELETE_SHOW_PERMISSIONS)[number]
 export type EditDeleteShowPermissions = {
   [key in EditDeleteShowPermission]?: boolean
 }
 
 export const ADD_DELETE_SORT_PERMISSIONS = ['add', 'delete', 'sort'] as const
-export type AddDeleteSortPermission = typeof ADD_DELETE_SORT_PERMISSIONS[number]
+export type AddDeleteSortPermission =
+  (typeof ADD_DELETE_SORT_PERMISSIONS)[number]
 export type AddDeleteSortPermissions = {
   [key in AddDeleteSortPermission]?: boolean
 }
 
 export const VIEW_EDIT_PERMISSIONS = ['view', 'edit'] as const
-export type ViewEditPermission = typeof VIEW_EDIT_PERMISSIONS[number]
+export type ViewEditPermission = (typeof VIEW_EDIT_PERMISSIONS)[number]
 export type ViewEditPermissions = {
   [key in ViewEditPermission]?: boolean
 }
 
 export const FIELD_PERMISSIONS = ['edit', 'edit_value', 'delete'] as const
-export type FieldPermission = typeof FIELD_PERMISSIONS[number]
+export type FieldPermission = (typeof FIELD_PERMISSIONS)[number]
 export type FieldPermissions = {
   [key in FieldPermission]?: boolean
 }
 
 // edit_value = modifica valore campi
 export const FOLDER_PERMISSIONS = ['edit', 'edit_value', 'delete'] as const
-export type FolderPermission = typeof FOLDER_PERMISSIONS[number]
+export type FolderPermission = (typeof FOLDER_PERMISSIONS)[number]
 export type FolderPermissions = {
   [key in FolderPermission]?: boolean
 }
@@ -76,13 +60,13 @@ export const TRANSLATOR_PERMISSIONS = [
   'can_edit',
   'can_edit_langs',
 ] as const
-export type TranslatorPermission = typeof TRANSLATOR_PERMISSIONS[number]
+export type TranslatorPermission = (typeof TRANSLATOR_PERMISSIONS)[number]
 export type TranslatorPermissions = {
   [key in TranslatorPermission]?: boolean
 }
 
 export const LINKS_PERMISSIONS = ['show', 'add', 'edit', 'delete'] as const
-export type LinksPermission = typeof LINKS_PERMISSIONS[number]
+export type LinksPermission = (typeof LINKS_PERMISSIONS)[number]
 export type LinksPermissions = {
   [key in LinksPermission]?: boolean
 }
@@ -96,7 +80,7 @@ export const DM_PERMISSION_KEYS = [
   'things',
   'folders',
 ] as const
-export type DMPermissionKey = typeof DM_PERMISSION_KEYS[number]
+export type DMPermissionKey = (typeof DM_PERMISSION_KEYS)[number]
 export const DM_CUSTOM_PERMISSION_KEYS = [
   'custom_resources',
   'resource_fields',
@@ -105,13 +89,13 @@ export const DM_CUSTOM_PERMISSION_KEYS = [
   'resource_folders',
   'custom_folders',
 ] as const
-export type DMCustomPermissionKey = typeof DM_CUSTOM_PERMISSION_KEYS[number]
+export type DMCustomPermissionKey = (typeof DM_CUSTOM_PERMISSION_KEYS)[number]
 export const LANG_PERMISSION_KEYS = [
   'translator',
   'readable_langs',
   'writable_langs',
 ] as const
-export type LangPermissionKey = typeof LANG_PERMISSION_KEYS[number]
+export type LangPermissionKey = (typeof LANG_PERMISSION_KEYS)[number]
 export const LINK_PERMISSION_KEYS = [
   'api_tokens',
   'pdf_generators',
@@ -131,7 +115,7 @@ export const LINK_PERMISSION_KEYS = [
   'resource_viewers',
   'dm_settings',
 ] as const
-export type LinkPermissionKey = typeof LINK_PERMISSION_KEYS[number]
+export type LinkPermissionKey = (typeof LINK_PERMISSION_KEYS)[number]
 export const LINK_CUSTOM_PERMISSION_KEYS = [
   'custom_api_tokens',
   'custom_pdf_generators',
@@ -151,19 +135,22 @@ export const LINK_CUSTOM_PERMISSION_KEYS = [
   'custom_resource_viewers',
   'custom_dm_settings',
 ] as const
-export type LinkCustomPermissionKey = typeof LINK_CUSTOM_PERMISSION_KEYS[number]
+export type LinkCustomPermissionKey =
+  (typeof LINK_CUSTOM_PERMISSION_KEYS)[number]
 export const ROLE_PERMISSION_KEYS = [
   ...DM_PERMISSION_KEYS,
   ...DM_CUSTOM_PERMISSION_KEYS,
   ...LANG_PERMISSION_KEYS,
   ...LINK_PERMISSION_KEYS,
   ...LINK_CUSTOM_PERMISSION_KEYS,
+  'dam',
 ] as const
 export type RolePermissionKey = keyof RolePermissions
 
 export interface RolePermissions {
   can_edit_roles: boolean
   can_manage_drafts: boolean
+  can_manage_drafts_roles_wl?: RoleInterfaceID[]
   can_create_drafts: boolean
 
   resources: StandardPermissions
@@ -217,10 +204,16 @@ export interface RolePermissions {
   dm_settings: LinksPermissions
   custom_dm_settings: Std<EditDeleteShowPermissions>
 
+  dam: {
+    is_active?: boolean
+    can_edit?: boolean
+  }
+
   // undefined means all langs
   readable_langs?: string[]
   // undefined means all langs
   writable_langs?: string[]
+  disable_edit_of_untranslatable_values: boolean
 }
 export interface RoleSettings {
   resource_settings: { [key: ResourceID]: ResourceSettings }
@@ -235,15 +228,12 @@ export interface RoleInterface {
   is_admin: boolean
   view_id?: ViewID
   fs_links: number[]
-  auth: RoleAuth
   limit_fs: boolean
   permissions: RolePermissions
   settings: RoleSettings //readonly
   dm_settings_id?: DMSettingsID
   created_at: string
   updated_at: string
-  company?: CompanyInfo
-  schema?: CompanyInfo
 }
 
 export class RoleSectionPermissionsInstance {
@@ -285,6 +275,14 @@ export class RolePermissionsInstance {
       custom: this.json[('custom_' + section) as LinkCustomPermissionKey],
     })
   }
+  // DAM
+  canShowDAM(): boolean {
+    return Boolean(this.json.dam.is_active)
+  }
+  canEditDAM(): boolean {
+    return Boolean(this.json.dam.can_edit)
+  }
+
   // Roles
   canEditRoles(): boolean {
     return Boolean(this.json.can_edit_roles)
@@ -385,6 +383,13 @@ export class RolePermissionsInstance {
     if (!this.canEditThings(field.resource()) && !is_creation) return false
     if (this.json.custom_fields[field.id])
       return Boolean(this.json.custom_fields[field.id].edit_value)
+
+    if (
+      !field.is_translatable &&
+      this.json.disable_edit_of_untranslatable_values
+    ) {
+      return false
+    }
     return true
   }
   canEditField(field: Field): boolean {
@@ -420,19 +425,22 @@ export class RolePermissionsInstance {
     return Boolean(this.json.folders.sort)
   }
   // Folder Specific
-  canEditFolderValue(folder: FieldFolder, is_creation = false): boolean {
+  canEditFolderValue(
+    folder: FieldFolder | FolderView,
+    is_creation = false
+  ): boolean {
     if (!this.canEditFolder(folder) && !is_creation) return Boolean(false)
     if (this.json.custom_folders[folder.id]) {
       return Boolean(this.json.custom_folders[folder.id].edit_value)
     }
     return Boolean(true)
   }
-  canEditFolder(folder: FieldFolder): boolean {
+  canEditFolder(folder: FieldFolder | FolderView): boolean {
     if (this.json.custom_folders[folder.id])
       return Boolean(this.json.custom_folders[folder.id].edit)
     return this.canEditFolders(folder.resource_id)
   }
-  canDeleteFolder(folder: FieldFolder): boolean {
+  canDeleteFolder(folder: FieldFolder | FolderView): boolean {
     if (this.json.custom_folders[folder.id])
       return Boolean(this.json.custom_folders[folder.id].delete)
     return this.canDeleteFolders(folder.resource_id)
@@ -497,6 +505,10 @@ export class RolePermissionsInstance {
 
 export function allPermissions(): RolePermissionsInstance {
   const res: Partial<RolePermissions> = {}
+  res.dam = {
+    is_active: true,
+    can_edit: true,
+  }
   DM_PERMISSION_KEYS.forEach(
     permission =>
       (res[permission] = {

@@ -13,24 +13,29 @@ export interface CompanyInfo {
     description?: string
     telephone?: string
     email?: string
-    partner_name?: string
-    partner_description?: string
-    partner_telephone?: string
-    partner_email?: string
     accent_color?: string
     login_wallpaper_color?: string
     logo?: OpFileRaw
-    partner_logo?: OpFileRaw
     logo_dark?: OpFileRaw
-    partner_logo_dark?: OpFileRaw
+  }
+  partner: {
+    id: number
+    name: string
+    logo?: OpFileRaw
+    logo_dark?: OpFileRaw
+    help_description?: string
+    help_email?: string
+    help_phone?: string
+  }
+  invoice_to_id: number
+  oauth_provider?: {
+    id: string
+    label: string
   }
   created_at?: string
 }
 
 export interface FullCompanyInfo extends CompanyInfo {
-  id: CompanyID
-  name?: string
-  label: string
   admin_ids: UserID[]
   schemas: CondensedSchema[]
   active_schemas?: number
@@ -39,4 +44,5 @@ export interface FullCompanyInfo extends CompanyInfo {
   roles: RoleInterface[]
   mod_deepl: boolean
   mod_beta: boolean
+  mod_ai: boolean
 }

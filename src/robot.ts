@@ -1,6 +1,7 @@
+import { forEach } from 'lodash'
 import { FieldID, QueryFilter, Schema, SchemaID, ThingID, UserID } from '.'
 import { ResourceID } from './resource'
-import { SchemaService } from './schema-service'
+import { Identifier, SchemaService } from './schema-service'
 
 export type RobotID = number
 export type LibID = number
@@ -11,10 +12,14 @@ export interface Robot {
   label: string
   is_disabled: boolean
   is_automatic: boolean
+  is_automatic_on_tree_change: boolean
   user_id?: UserID
   foreach_langs?: boolean
-  enable_https?: boolean
   failed_jobs_count?: number
+  created_at: string
+  updated_at: string
+  last_execution?: string
+  // enable_https?: boolean
 }
 export interface FullRobot extends Robot {
   script: string
@@ -43,11 +48,38 @@ export interface Lib {
   robots?: Robot[]
   script?: string
 }
+export interface RobotJobsResponse {
+  // data
+  data: RobotJob[]
 
-export class RobotService extends SchemaService<Robot> {
+  // Utility
+  path: string
+  links: { url?: string; label: string; active: boolean }[]
+  first_page_url: string
+  last_page_url: string
+  next_page_url?: string
+  prev_page_url?: string
+
+  // Pagination
+  current_page: number
+  last_page: number
+  per_page: number
+  to: number
+  from: number
+  total: number
+}
+export interface RobotStats {
+  executed: number
+  failed: number
+  pending: number
+  running: number
+}
+
+export class RobotsService extends SchemaService<Robot> {
   public edits: Robot[] = []
   public test_loading = false
   public robot_loading = false
+  public robots_by_resource: Map<ResourceID, Robot[]> = new Map()
 
   constructor(public schema: Schema) {
     super(schema, 'robots')
@@ -64,6 +96,49 @@ export class RobotService extends SchemaService<Robot> {
     return res.data
   }
 
+  async refresh(): Promise<Map<Identifier, Robot>> {
+    try {
+      this.is_loaded = false
+      const items: Robot[] = (
+        await this.schema.api.get(this.endpoint, this.data_clone)
+      ).data
+      items.forEach(item => this.addOrUpdate(item))
+
+      for (const key of this.items.keys()) {
+        if (!items.find(x => x.id == key)) this.items.delete(key)
+      }
+
+      this.refreshRobotsByResource(items)
+    } catch (error) {
+      console.log(error)
+    } finally {
+      this.is_loaded = true
+      return this.items
+    }
+  }
+  async delete(id: RobotID) {
+    try {
+      this.is_loaded = false
+      await this.schema.api.delete(this.endpoint + '/' + id, this.data_clone)
+      this.items.delete(id)
+      this.refreshRobotsByResource(this.items_array)
+    } catch (error) {
+      throw error
+    } finally {
+      this.is_loaded = true
+    }
+  }
+  refreshRobotsByResource(robots: Robot[]) {
+    this.robots_by_resource.clear()
+    forEach(robots, robot => {
+      const robots = this.robots_by_resource.get(robot.resource_id)
+      if (robots) {
+        robots.push(robot)
+      } else {
+        this.robots_by_resource.set(robot.resource_id, [robot])
+      }
+    })
+  }
   relaunchRobot(id: RobotID) {
     return this.schema.api.post('robots/queue-all', { id })
   }
@@ -79,7 +154,7 @@ export class RobotService extends SchemaService<Robot> {
       script: robot.script,
       libs: robot.libs,
       foreach_langs: robot.foreach_langs,
-      enable_https: robot.enable_https,
+      // enable_https: robot.enable_https,
       input: robot.input,
       resource_id: robot.resource_id,
       thing_id,
@@ -97,11 +172,11 @@ export class RobotService extends SchemaService<Robot> {
   getRobotJobs(
     id: RobotID,
     state?: string
-  ): Promise<{ data: { data: RobotJob[] } }> {
+  ): Promise<{ data: RobotJobsResponse }> {
     return this.schema.api.get('robots/jobs', { robot_id: id, state })
   }
 
-  getRobotStats(id: RobotID, state: string) {
+  getRobotStats(id: RobotID, state: string): Promise<{ data: RobotStats }> {
     return this.schema.api.get('robots/stats', { robot_id: id, state })
   }
 }
