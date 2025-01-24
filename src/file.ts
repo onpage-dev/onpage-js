@@ -17,6 +17,7 @@ export interface OpFileRaw {
   color_r?: number
   color_b?: number
   color_g?: number
+  focus?: [number, number]
 }
 
 export interface FileLinkOptions {
@@ -93,6 +94,8 @@ export class OpFile {
 
       if (opts.mode) {
         suffix += '-' + opts.mode
+      } else if (opts.x && opts.y && this.focus) {
+        suffix += `-focus-${Math.floor(this.focus[0] * 100)}-${Math.floor(this.focus[1] * 100)}`
       }
     }
     if (suffix || !isNullOrUndefined(opts.ext)) {

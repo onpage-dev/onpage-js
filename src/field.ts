@@ -1,5 +1,5 @@
-import { cloneDeep, first, isArray, isObject, isString } from 'lodash'
-import { FolderViewID, FolderViewJson } from '.'
+import { cloneDeep, first, isArray, isEqual, isObject, isString } from 'lodash'
+import { FolderViewID, FolderViewJson, OpFile } from '.'
 import { TranslatableString } from './connector-config'
 import { Resource } from './resource'
 import { FieldJson, Schema } from './schema'
@@ -44,6 +44,12 @@ export type FieldType =
   | 'file'
   | 'image'
   | 'relation'
+
+export interface FieldAiOptions {
+  context: FieldID[][]
+  context_images?: FieldID[][]
+  additional_context?: string
+}
 export class Field {
   private json!: FieldJson
 
@@ -73,9 +79,7 @@ export class Field {
   get label(): string {
     return this.getLabel(this._schema.lang)
   }
-  get ai_options():
-    | { context: FieldID[][]; additional_context?: string }
-    | undefined {
+  get ai_options(): FieldAiOptions | undefined {
     return this.json.opts.ai_options
   }
   get labels(): { [key: string]: any } {
@@ -298,9 +302,13 @@ export class Field {
 
     // Files check token and name
     if (isObject(a) && isObject(b)) {
-      const file_a = a as any
-      const file_b = b as any
-      return file_a.token !== file_b.token || file_a.name !== file_b.name
+      const file_a = a as OpFile
+      const file_b = b as OpFile
+      return (
+        file_a.token !== file_b.token ||
+        file_a.name !== file_b.name ||
+        !isEqual(file_a.focus, file_b.focus)
+      )
     }
 
     // We should never get here...

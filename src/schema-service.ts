@@ -23,6 +23,7 @@ export class SchemaService<
   }
   public items: Map<ID, T> = new Map()
   public is_loaded = false
+  public load_error?: any
 
   get is_loading() {
     return !this.is_ready || !this.is_loaded
@@ -68,19 +69,25 @@ export class SchemaService<
   }
 
   // Load all items from this service
-  async refresh(): Promise<Map<ID, T>> {
+  async refresh(controller?: AbortController): Promise<Map<ID, T>> {
     try {
       this.is_loaded = false
       const items: J[] = (
-        await this.schema.api.get(this.endpoint, this.data_clone)
+        await this.schema.api.get(this.endpoint, this.data_clone, {
+          signal: controller?.signal,
+        })
       ).data
       items.forEach(item => this.addOrUpdate(item))
 
       for (const key of this.items.keys()) {
         if (!items.find(x => x.id == key)) this.items.delete(key)
       }
-    } catch (error) {
-      console.log(error)
+      this.load_error = undefined
+    } catch (error: any) {
+      if (error.code !== 'ERR_CANCELED') {
+        this.load_error = error
+        console.log(error)
+      }
     } finally {
       this.is_loaded = true
       return this.items

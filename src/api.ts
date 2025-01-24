@@ -1,6 +1,6 @@
-import axios, { AxiosInstance, AxiosResponse } from 'axios'
+import axios, { AxiosInstance, AxiosResponse, CancelToken } from 'axios'
 import { clone } from 'lodash'
-import { ApiTokenValue, ViewID } from '.'
+import { ApiTokenValue, Identifier, ViewID } from '.'
 import { ApiRequestConfig, Backend } from './backend'
 import { Schema, SchemaID, SchemaJson } from './schema'
 import { deepFreeze } from './utils'
@@ -24,6 +24,11 @@ export interface ApiOptions {
   token?: ApiTokenValue
   domain?: ApiDomain
   is_user_mode?: boolean
+}
+export interface LoadSchemaParams {
+  schema_id?: Identifier
+  view_id?: ViewID
+  cancel_token?: CancelToken
 }
 
 export class Api extends Backend {
@@ -57,10 +62,7 @@ export class Api extends Backend {
     this.http.defaults.headers.common['x-company'] = schema.company_id
   }
 
-  async loadSchema(params?: {
-    schema_id?: number | string
-    view_id?: ViewID
-  }): Promise<Schema> {
+  async loadSchema(params?: LoadSchemaParams): Promise<Schema> {
     const schema_json = await this.schemaRequest(params)
     const api = this.clone()
     api.setupForProject(schema_json)
@@ -74,10 +76,7 @@ export class Api extends Backend {
     return res.data.id
   }
 
-  async schemaRequest(params?: {
-    schema_id?: number | string
-    view_id?: ViewID
-  }): Promise<SchemaJson> {
+  async schemaRequest(params?: LoadSchemaParams): Promise<SchemaJson> {
     if (this.is_user_mode && !params?.schema_id) {
       throw new Error('loadSchema needs a schema_id when APIs are in user mode')
     }
@@ -85,14 +84,14 @@ export class Api extends Backend {
       if (!params) params = {}
       params.schema_id = undefined
     }
-    return params?.schema_id
-      ? (
-        await this.get<SchemaJson>(`schemas/${params?.schema_id}`, {
-          view_id: params?.view_id,
-        })
-      ).data
-      : (await this.get<SchemaJson>('schema', { view_id: params?.view_id }))
-        .data
+
+    return (
+      await this.get<SchemaJson>(
+        params?.schema_id ? `schemas/${params.schema_id}` : 'schema',
+        { view_id: params?.view_id },
+        { cancelToken: params?.cancel_token }
+      )
+    ).data
   }
   request<T = any>(
     method: 'get' | 'post' | 'delete',

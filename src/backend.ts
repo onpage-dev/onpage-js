@@ -25,11 +25,11 @@ export abstract class Backend {
   }): Promise<SchemaJson>
 
   buildUrl(
-    subdomain: 'api' | 'app' | 'storage' | string,
+    subdomain: 'api' | 'app' | 'storage' | String,
     path: string | string[] = '/',
     options?: object
   ): string {
-    if (isArray(path)) path = path.map(p => encodeURIComponent(p)).join('/')
+    if (isArray(path)) path = path.map(p => encodeURIComponent(p.replace('/', '-'))).join('/')
     if (!path.startsWith('/')) {
       path = '/' + path
     }

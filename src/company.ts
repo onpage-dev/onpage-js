@@ -9,14 +9,14 @@ export interface CompanyInfo {
   id: CompanyID
   name?: string
   label: string
+  logo?: OpFileRaw
+  logo_dark?: OpFileRaw
   info: {
     description?: string
     telephone?: string
     email?: string
     accent_color?: string
     login_wallpaper_color?: string
-    logo?: OpFileRaw
-    logo_dark?: OpFileRaw
   }
   partner: {
     id: number

@@ -41,7 +41,7 @@ export const STRING_OPERATORS = [
   '=',
   '<>',
   'starts_with',
-  'ends_with'
+  'ends_with',
 ] as const
 export type StringOperator = (typeof STRING_OPERATORS)[number]
 
@@ -119,9 +119,7 @@ export interface SavedFilter {
   id: number
   label: string
 }
-export interface FilterLabel {
-  id: number
-  label: string
+export interface FilterLabel extends SavedFilter {
   resource_id: ResourceID
 }
 export interface LoadedFilterLabel extends FilterLabel {

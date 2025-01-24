@@ -15,22 +15,20 @@ import {
   FieldID,
   FieldIdentifier,
 } from './field'
+import { MetaField } from './fields'
 import {
   FilterClause,
   FilterID,
   FilterLabel,
   createFilterGroup,
 } from './filters'
-import { LegacyTemplate } from './legacy-template'
 import { FieldCollection } from './misc'
 import { FieldQuery, Query, QueryFilter } from './query'
 import { FolderViewJson } from './resource-viewer-folders'
 import { PivotViewJson } from './resource-viewer-pivot'
-import { Robot } from './robot'
-import { FieldJson, IdMetaField, ResourceJson, Schema, THING_META_FIELDS } from './schema'
+import { FieldJson, ResourceJson, Schema, THING_META_FIELDS } from './schema'
 import { SchemaService } from './schema-service'
 import { Thing, ThingID } from './thing'
-import { MetaField } from './fields'
 export type ResourceID = number
 export type ResourceName = string
 export type ResourceIdentifier = ResourceID | ResourceName
@@ -62,6 +60,7 @@ export interface ResourceSlotFilter extends ResourceSlotBase {
   path?: FieldID[]
   filter_id?: FilterID
 }
+
 export interface ResourceSlotsResponse {
   title?: ResourceSlotNonFilter[]
   subtitle?: ResourceSlotNonFilter[]
@@ -69,6 +68,7 @@ export interface ResourceSlotsResponse {
   filters?: ResourceSlotFilter[]
   cover?: ResourceSlotNonFilter[]
 }
+
 export class ResourceSlotsService extends SchemaService<ResourceSlot> {
   constructor(public schema: Schema) {
     super(schema, 'resources/slots')
@@ -83,7 +83,7 @@ export class ResourceSlotsService extends SchemaService<ResourceSlot> {
   }
 }
 export class SlotManager {
-  constructor(private resource: Resource) { }
+  constructor(private resource: Resource) {}
 
   get title_slots(): ResourceSlotNonFilter[] {
     if (this.resource.slots_raw?.title) {
@@ -92,15 +92,15 @@ export class SlotManager {
     const field = this.resource.fields.find(x => x.is_textual)
     return field
       ? [
-        {
-          type: 'title',
-          resource_id: this.resource.id,
-          labels: {},
-          path: [field.id],
-          id: undefined!,
-          opts: {},
-        },
-      ]
+          {
+            type: 'title',
+            resource_id: this.resource.id,
+            labels: {},
+            path: [field.id],
+            id: undefined!,
+            opts: {},
+          },
+        ]
       : []
   }
   get subtitle_slots(): ResourceSlotNonFilter[] {
@@ -119,15 +119,15 @@ export class SlotManager {
     const field = this.resource.fields.find(x => x.type == 'image')
     return field
       ? [
-        {
-          type: 'cover',
-          resource_id: this.resource.id,
-          labels: {},
-          path: [field.id],
-          id: undefined!,
-          opts: {},
-        },
-      ]
+          {
+            type: 'cover',
+            resource_id: this.resource.id,
+            labels: {},
+            path: [field.id],
+            id: undefined!,
+            opts: {},
+          },
+        ]
       : []
   }
 
@@ -148,6 +148,21 @@ export class SlotManager {
     if (!field) return []
 
     if (path.length == 1) {
+      let value: string
+      if (['date', 'datetime'].includes(field.type)) {
+        const date = new Date(query)
+        if (isNaN(date.getTime())) {
+          value = ''
+        } else {
+          value =
+            field.type == 'date'
+              ? date.toJSON().slice(0, 19).split('T')[0]
+              : date.toJSON().slice(0, 19).replace('T', ' ')
+        }
+      } else {
+        value = query
+      }
+      if (!value.length) return []
       return [
         {
           type: 'field',
@@ -155,7 +170,7 @@ export class SlotManager {
           resource_id: this.resource.id,
           lang: this.resource.schema().lang,
           operator: 'like',
-          value: query,
+          value,
         },
       ]
     }
@@ -284,7 +299,7 @@ export class Resource<
     return this.json.slots
   }
   get filters(): FilterLabel[] {
-    return this.json.filters
+    return this.json.filters ?? []
   }
   get domain(): string | undefined {
     return this.json.domain ?? undefined
@@ -323,9 +338,15 @@ export class Resource<
       } else {
         if (id[0] == '_') {
           if (THING_META_FIELDS[id as MetaField]) {
-            return new Field(this._schema, Object.assign({
-              resource_id: this.id,
-            }, THING_META_FIELDS[id as MetaField]))
+            return new Field(
+              this._schema,
+              Object.assign(
+                {
+                  resource_id: this.id,
+                },
+                THING_META_FIELDS[id as MetaField]
+              )
+            )
           } else {
             throw new Error(`Field "${id}" not supported`)
           }

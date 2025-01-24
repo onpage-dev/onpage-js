@@ -21,7 +21,7 @@ export interface UserBase {
   contact_phone_int?: string
   /** Phone number used for 2FA */
   telephone: string
-  legal_entity_id?: number
+  legal_entities_ids?: number[]
   created_at: string
   updated_at: string
 }

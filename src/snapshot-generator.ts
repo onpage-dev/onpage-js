@@ -16,5 +16,4 @@ export interface SnapshotGenerator {
   is_model?: boolean
   with_meta?: boolean
   snapshots?: Snapshot[]
-  last_snapshot?: Snapshot
 }

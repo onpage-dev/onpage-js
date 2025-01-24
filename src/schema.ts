@@ -6,12 +6,13 @@ import {
   Author,
   FieldType,
   FieldVisibilityType,
+  FilterLabel,
   MetaField,
   OpFile,
   OpFileRaw,
   ResourceName,
   ResourceSlotsResponse,
-  ViewID
+  ViewID,
 } from '.'
 import { Backend } from './backend'
 
@@ -63,7 +64,7 @@ export interface ResourceJson extends JsonBase {
   type?: string
   order?: string
   slots?: ResourceSlotsResponse
-  filters?: any
+  filters?: FilterLabel[]
   domain?: any
   folders?: any
   table_configs?: any
@@ -101,8 +102,8 @@ export interface SchemaJson extends JsonBase {
   resources: ResourceJson[]
 }
 export interface SerializedDataJson {
-  schema: SchemaJson,
-  things: ThingJson[],
+  schema: SchemaJson
+  things: ThingJson[]
 }
 
 // Custom models
@@ -219,11 +220,11 @@ export const DeletedAtMetaField: FieldJson = {
 }
 
 export const THING_META_FIELDS: Record<MetaField, FieldJson> = {
-  '_id': IdMetaField,
-  '_created_at': CreatedAtMetaField,
-  '_updated_at': UpdatedAtMetaField,
-  '_deleted_at': DeletedAtMetaField,
-  '_folder_id': FolderIdMetaField,
+  _id: IdMetaField,
+  _created_at: CreatedAtMetaField,
+  _updated_at: UpdatedAtMetaField,
+  _deleted_at: DeletedAtMetaField,
+  _folder_id: FolderIdMetaField,
 }
 
 export const IdField: FieldJson = {
@@ -554,7 +555,7 @@ export class Schema {
   }
 
   async createSnapshot(): Promise<SerializedDataJson> {
-    (window as any).Schema = Schema
+    ;(window as any).Schema = Schema
     return {
       schema: this.getJson(),
       things: await this.downloadThings(),
@@ -573,9 +574,9 @@ export class Schema {
 
   async downloadThings(q?: Resource | Query): Promise<ThingJson[]> {
     if (!q) {
-      return (await Promise.all(
-        this.resources.flatMap(x => this.downloadThings(x))
-      )).flat()
+      return (
+        await Promise.all(this.resources.flatMap(x => this.downloadThings(x)))
+      ).flat()
     }
     if (q instanceof Resource) {
       return await this.downloadThings(q.query())

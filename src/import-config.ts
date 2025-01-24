@@ -1,4 +1,16 @@
-import { Author, FieldID, ResourceID, Schema, SchemaID, ThingID } from '.'
+import {
+  Author,
+  CronTimezone,
+  FieldID,
+  GroupClause,
+  OpFile,
+  ResourceID,
+  Schema,
+  SchemaID,
+  ThingID,
+  ThingValue,
+  ThingValueEtim,
+} from '.'
 import { SchemaService } from './schema-service'
 import { formData } from './utils'
 
@@ -20,6 +32,7 @@ export interface ImportConfigColumn {
   ignore_if_thing_exists?: boolean
   create_new_options?: boolean
   skip_empty_lines?: boolean
+  strip_html?: boolean
   ignore_missing_relations?: boolean
   create_missing_relations?: boolean
   case_sensitive_match?: boolean
@@ -40,11 +53,18 @@ export interface ImportConfigColumn {
   }[]
   generated_from?: ImportConfigGeneratedColumn
 }
-export type ImportConfigGeneratedColumn = ImportConfigConcatColumn
+export type ImportConfigGeneratedColumn =
+  | ImportConfigConcatColumn
+  | ImportConfigStaticColumn
 export interface ImportConfigConcatColumn {
   type: 'concat'
   source_columns: ImportConfigColumn['name'][]
   separator?: string
+  merge_text?: boolean
+}
+export interface ImportConfigStaticColumn {
+  type: 'static'
+  value: string
 }
 export type ImportConfigSource =
   | ImportConfigSourceDatabase
@@ -88,7 +108,7 @@ export interface ImportSequence {
   id: ImportSequenceID
   label: string
   token: string
-  timezone: string
+  timezone: CronTimezone
   cron_times: string[]
   last_cron_run?: string
   created_at: string
@@ -109,6 +129,10 @@ export interface ImportConfigForm {
   delete?: boolean
 }
 
+export type ImportConfigUntouchedFieldValue = Exclude<
+  ThingValue,
+  OpFile | ThingValueEtim | [number, number] | [number, number, number]
+>
 export interface ImportConfig {
   id: ImportConfigID
   file_token: string
@@ -129,8 +153,14 @@ export interface ImportConfig {
     restore_deleted_things?: boolean
     allow_multiple_primary_keys?: boolean
     delete?: boolean
+    set_untouched?: boolean
+    set_untouched_field_id?: FieldID
+    set_untouched_field_value?: ImportConfigUntouchedFieldValue
+    delete_filter?: GroupClause
+    ignore_case_primary_key?: boolean
     columns: ImportConfigColumn[]
   }
+  latest_job_status?: string
 }
 
 export interface ImportConfigJob {
@@ -182,12 +212,12 @@ export class ImportConfigsService extends SchemaService<ImportConfig> {
   async getFullConfig(
     config_id: ImportConfigID
   ): Promise<ImportConfig & { file?: File }> {
-    return (await this.schema.api.get('import/configs', { id: config_id })).data
+    return (await this.schema.api.get(this.endpoint, { id: config_id })).data
   }
 
   async duplicateConfig(config_id: ImportConfigID) {
     return await this.schema.api.post(
-      `import/configs/${config_id}/duplicate`,
+      `${this.endpoint}/${config_id}/duplicate`,
       {}
     )
   }
@@ -198,7 +228,7 @@ export class ImportConfigsService extends SchemaService<ImportConfig> {
   ): Promise<Pick<ImportConfig, 'config' | 'file_token' | 'last_upload'>> {
     return (
       await this.schema.api.post(
-        'import/configs/update-model',
+        `${this.endpoint}/update-model`,
         formData({
           id,
           file,
@@ -212,7 +242,7 @@ export class ImportConfigsService extends SchemaService<ImportConfig> {
   }
 
   async getJobs(config_id: ImportConfigID): Promise<ImportConfigJob[]> {
-    return (await this.schema.api.get(`.S/import/configs/${config_id}/jobs`))
+    return (await this.schema.api.get(`.S/${this.endpoint}/${config_id}/jobs`))
       .data
   }
 }
