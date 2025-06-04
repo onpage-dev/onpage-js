@@ -46,6 +46,7 @@ export type FieldQueryGroup = {
   filters?: QueryFilter[]
   limit?: number
   offset?: number
+  order_by?: OrderBy
 }
 
 export function addFieldPathToFieldQuery(path: FieldIdentifier[]): FieldQuery {
@@ -385,7 +386,23 @@ export class Query<
     return this
   }
   addField(field: FieldQuery): Query {
-    this.fields.push(field)
+    if (!isArray(field) && isObject(field) && field.field) {
+      const rel = this.setRelation(field.field, field.as ?? String(field.field))
+      rel.filters.push(...(field.filters ?? []))
+      rel.setFields(field.fields ?? [])
+      rel.limit(field.limit)
+      rel.offset(field.offset)
+      if (field.order_by?.field) {
+        rel.orderBy(
+          field.order_by.field,
+          field.order_by.desc,
+          field.order_by.lang
+        )
+      }
+    } else {
+      this.filters
+      this.fields.push(field)
+    }
     return this
   }
 

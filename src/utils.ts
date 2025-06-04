@@ -1,4 +1,4 @@
-import { isUndefined, isNull, isNumber, isBoolean, isEmpty } from 'lodash'
+import { isBoolean, isEmpty, isNull, isNumber, isUndefined } from 'lodash'
 
 export function bench<T>(label: string, cb: () => T): T {
   console.time(label)
@@ -67,4 +67,10 @@ export function formData(
     fd.append(name, '')
   }
   return fd
+}
+
+export type Omit<T, K extends keyof T> = Pick<T, Exclude<keyof T, K>>
+export type Optional<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>
+export type SomeRequired<Type, Key extends keyof Type> = Type & {
+  [Property in Key]-?: Type[Property]
 }

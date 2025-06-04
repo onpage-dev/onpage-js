@@ -14,7 +14,6 @@ import {
   ResourceSlotsResponse,
   ViewID,
 } from '.'
-import { Backend } from './backend'
 
 import { SchemaEvents } from './events'
 import { Field, FieldID } from './field'
@@ -46,7 +45,6 @@ export interface FieldJson extends JsonBase {
   type: FieldType
   name: string
   resource_id: number
-  is_label?: boolean
   is_textual?: boolean
   label?: string
   labels: { [key: string]: string }
@@ -99,6 +97,7 @@ export interface SchemaJson extends JsonBase {
   usage_stats?: any
   langs: string[]
   default_lang: string
+  legal_entity_id?: number
   resources: ResourceJson[]
 }
 export interface SerializedDataJson {
@@ -119,7 +118,6 @@ export const IdMetaField: FieldJson = {
   },
   descriptions: {},
   description: '',
-  is_label: false,
   is_multiple: false,
   is_textual: true,
   is_translatable: false,
@@ -141,7 +139,6 @@ export const FolderIdMetaField: FieldJson = {
   },
   descriptions: {},
   description: '',
-  is_label: false,
   is_multiple: false,
   is_textual: true,
   is_translatable: false,
@@ -163,7 +160,6 @@ export const CreatedAtMetaField: FieldJson = {
   },
   descriptions: {},
   description: '',
-  is_label: false,
   is_multiple: false,
   is_textual: true,
   is_translatable: false,
@@ -185,7 +181,6 @@ export const UpdatedAtMetaField: FieldJson = {
   },
   descriptions: {},
   description: '',
-  is_label: false,
   is_multiple: false,
   is_textual: true,
   is_translatable: false,
@@ -207,7 +202,6 @@ export const DeletedAtMetaField: FieldJson = {
   },
   descriptions: {},
   description: '',
-  is_label: false,
   is_multiple: false,
   is_textual: true,
   is_translatable: false,
@@ -238,7 +232,6 @@ export const IdField: FieldJson = {
   },
   descriptions: {},
   description: '',
-  is_label: false,
   is_multiple: false,
   is_textual: true,
   is_translatable: false,
@@ -260,7 +253,6 @@ export const NameField: FieldJson = {
   },
   descriptions: {},
   description: '',
-  is_label: false,
   is_multiple: false,
   is_textual: true,
   is_translatable: false,
@@ -282,7 +274,6 @@ export const LabelField: FieldJson = {
   },
   descriptions: {},
   description: '',
-  is_label: false,
   is_multiple: false,
   is_textual: true,
   is_translatable: false,
@@ -368,11 +359,14 @@ export class Schema {
   public fallback_lang?: string
   private json!: SchemaJson
   public readonly bus: Emitter<SchemaEvents> = mitt<SchemaEvents>()
-  constructor(public api: Backend, json: SchemaJson) {
+  constructor(public api: Api | LocalApi, json: SchemaJson) {
     this.setJson(json)
     this.lang = this.default_lang
   }
 
+  get legal_entity_id() {
+    return this.json.legal_entity_id
+  }
   get id(): SchemaID {
     return this.json.id
   }
@@ -555,7 +549,8 @@ export class Schema {
   }
 
   async createSnapshot(): Promise<SerializedDataJson> {
-    ;(window as any).Schema = Schema
+    const w = window as any
+    w.Schema = Schema
     return {
       schema: this.getJson(),
       things: await this.downloadThings(),

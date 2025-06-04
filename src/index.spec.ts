@@ -1,9 +1,9 @@
 import { OpFile } from './file'
-
 import { expect } from 'chai'
 import dotenv from 'dotenv'
 import { Schema } from './schema'
 import { Thing } from './thing'
+import { describe, it } from 'node:test'
 dotenv.config()
 
 // let api: Api = null

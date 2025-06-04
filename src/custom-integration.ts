@@ -1,4 +1,4 @@
-import { Author, OpFile, OpFileRaw, SchemaID } from '.'
+import { Author, CronTimezone, OpFile, OpFileRaw, SchemaID } from '.'
 
 export type CustomIntegrationEnvID = number
 export interface CustomIntegrationEnv {
@@ -8,8 +8,8 @@ export interface CustomIntegrationEnv {
   data: Record<string, any>
   email_errors_to?: string[]
   cron_times: CronTime[]
-  timezone?: string
-  env_hosts: string[]
+  timezone?: CronTimezone
+  hosts: string[]
   max_ram_mb: number
   max_time_ms: number
   created_at?: string

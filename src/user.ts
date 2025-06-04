@@ -12,6 +12,8 @@ export interface UserBase {
   id: UserID
   first_name: string
   last_name: string
+  /** Generated first_name + last_name */
+  name: string
   job_title?: string
   email: string
   avatar?: OpFileRaw
@@ -21,7 +23,6 @@ export interface UserBase {
   contact_phone_int?: string
   /** Phone number used for 2FA */
   telephone: string
-  legal_entities_ids?: number[]
   created_at: string
   updated_at: string
 }
@@ -31,15 +32,20 @@ export interface UserForm extends UserBase {
   old_password?: string
 }
 export interface UserInfo extends UserBase {
-  /** Generated first_name + last_name */
-  name: string
   is_registered: boolean
   is_online: boolean
+  /** Grants access to internal features */
   is_pro: boolean
+  /** Grants access to domain admin route */
+  is_superadmin: boolean
   is_partner: boolean
   last_seen?: string
   /** Represents where the user is enabled (admin or in a role) */
   schema_ids?: SchemaID[]
+  legal_entities: {
+    id: number
+    name: string
+  }[]
 }
 export interface FullUserInfo extends UserInfo {
   companies: FullCompanyInfo[]

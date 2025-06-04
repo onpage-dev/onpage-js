@@ -96,6 +96,20 @@ export class RobotsService extends SchemaService<Robot> {
     return res.data
   }
 
+  starting_robot: Set<RobotID> = new Set()
+  async startRobot(robot: Robot, on_end?: CallableFunction) {
+    if (this.starting_robot.has(robot.id)) return
+    try {
+      this.starting_robot.add(robot.id)
+      await this.relaunchRobot(robot.id)
+
+      on_end && on_end()
+    } catch (error) {
+      console.error('Robots.startRobot()', error)
+    } finally {
+      this.starting_robot.delete(robot.id)
+    }
+  }
   async refresh(): Promise<Map<Identifier, Robot>> {
     try {
       this.is_loaded = false

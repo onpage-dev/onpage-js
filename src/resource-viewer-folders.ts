@@ -17,16 +17,19 @@ export class FolderViewService extends SchemaService<
   async refresh() {
     try {
       this.is_loaded = false
-      const items: FolderViewJson[] = (
-        await this.schema.api.get(this.endpoint, this.data_clone)
-      ).data
-      items.forEach(item => this.addOrUpdate(item))
-
-      for (const key of this.items.keys()) {
-        if (!items.find(x => x.id == key)) this.items.delete(key)
-      }
+      this.items = new Map(
+        (
+          await this.schema.api.get<FolderViewJson[]>(
+            this.endpoint,
+            this.data_clone
+          )
+        ).data.map(item => [
+          item.id,
+          this.parser.deserialize(this.schema, item),
+        ])
+      )
     } catch (error) {
-      console.log(error)
+      console.error('ResourceViewerFolders.refresh()', error)
     } finally {
       this.is_loaded = true
       return this.items
@@ -147,7 +150,7 @@ export class FolderView {
     this.form_fields.clear()
     this.order = json.order
     this.settings = json.settings
-    json.form_fields.map(id => {
+    json.form_fields.forEach(id => {
       const field = this.schema.field(id)
       if (!field) return
       if (!this.form_fields.has(id)) this.form_fields.set(field.id, field)

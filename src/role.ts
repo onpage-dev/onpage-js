@@ -265,6 +265,12 @@ export class RolePermissionsInstance {
     return Boolean(this.json.things.edit)
   }
   canEditAnyThing(): boolean {
+    if (Object.keys(this.json.custom_fields).length) {
+      const can_edit = Object.keys(this.json.custom_fields).find(
+        f_id => this.json.custom_fields[f_id].edit_value
+      )
+      if (can_edit) return Boolean(true)
+    }
     if (Object.keys(this.json.resource_things).length) {
       const can_edit = Object.keys(this.json.resource_things).find(
         th_id => this.json.resource_things[th_id].edit

@@ -17,7 +17,7 @@ export interface FieldFolder extends FolderViewJson {
   fids: FieldID[]
 }
 export interface FieldValueOption {
-  groups?: FolderViewID[]
+  groups?: FolderViewID[] | null
   value: { [key: string]: string | number | undefined }
 }
 export type FieldType =
@@ -148,9 +148,6 @@ export class Field {
   get resource_id() {
     return this.json.resource_id
   }
-  get is_label() {
-    return this.json.is_label
-  }
   get is_textual() {
     return this.json.is_textual
   }
@@ -190,7 +187,6 @@ export class Field {
         }
 
         // FieldValueOption
-        const new_opt = cloneDeep(opt)
         // Fallback to default_lang or first value available in case field was translatable and now isn't
         if (!this.is_translatable && isNullOrUndefined(opt.value[''])) {
           opt.value[''] =
@@ -200,7 +196,7 @@ export class Field {
         if (this.is_translatable && isNullOrUndefined(opt.value[def_lang])) {
           opt.value[def_lang] = opt.value['']
         }
-        ret.push(new_opt)
+        ret.push(opt)
       }
     )
     return ret

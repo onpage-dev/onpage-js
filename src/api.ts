@@ -41,7 +41,7 @@ export class Api extends Backend {
     this.domain = clone(options?.domain || Api.default_domain)
     const url = this.buildUrl('api')
     this.http = axios.create({
-      baseURL: options?.is_user_mode ? url : `${url}/view/${options?.token}`,
+      baseURL: options?.is_user_mode ? url : `${url}view/${options?.token}`,
       timeout: 60000,
       headers: {
         Authorization: options?.token,

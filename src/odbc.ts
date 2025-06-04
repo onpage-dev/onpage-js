@@ -4,7 +4,7 @@ export type OdbcID = number
 
 export interface OdbcRoot {
   res_id: ResourceID
-  rel_id: FieldID
+  rel_id?: FieldID
   branch_name?: string
   inline: boolean
   permutate: boolean

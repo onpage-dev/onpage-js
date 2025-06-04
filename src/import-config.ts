@@ -17,6 +17,31 @@ import { formData } from './utils'
 export type ImportConfigID = number
 export type ImportSequenceID = number
 
+export const IMPORT_CONFIG_FORMAT_TEXT_VALUES = [
+  'uppercase',
+  'lowercase',
+  'capital_letter',
+] as const
+export type ImportConfigFormatTextValue =
+  (typeof IMPORT_CONFIG_FORMAT_TEXT_VALUES)[number]
+export const DATE_FORMAT_TOKENS = [
+  'YY',
+  'YYYY',
+  'M',
+  'MM',
+  'D',
+  'DD',
+  'd',
+  'H',
+  'HH',
+  'h',
+  'hh',
+  'mm',
+  'ss',
+  'SSS',
+  'A',
+  'a',
+] as const
 export interface ImportConfigColumn {
   is_key: boolean
   hash: string
@@ -34,12 +59,15 @@ export interface ImportConfigColumn {
   skip_empty_lines?: boolean
   strip_html?: boolean
   ignore_missing_relations?: boolean
+  skip_line_for_missing_relations?: boolean
   create_missing_relations?: boolean
   case_sensitive_match?: boolean
   field_id?: FieldID
   lang?: string
   match_field_id?: FieldID
   sample?: string[]
+  format_text?: ImportConfigFormatTextValue
+  date_format?: string
   replacements?: {
     find: string
     replace: string
@@ -70,6 +98,7 @@ export type ImportConfigSource =
   | ImportConfigSourceDatabase
   | ImportConfigSourceFtp
   | ImportConfigSourceHttp
+export const IMPORT_CONFIG_SOURCE_TYPES = ['database', 'ftp', 'http'] as const
 export interface ImportConfigSourceDatabase {
   type: 'database'
   database_id: number
@@ -104,6 +133,10 @@ export interface ImportConfigSourceHttpBasicAuth {
   password: string
 }
 
+export interface ImportSequenceCustomSource {
+  source: ImportConfigSource
+  config_ids: ImportConfigID[]
+}
 export interface ImportSequence {
   id: ImportSequenceID
   label: string
@@ -114,6 +147,7 @@ export interface ImportSequence {
   created_at: string
   updated_at: string
   configs: ImportConfigID[]
+  custom_sources: ImportSequenceCustomSource[]
   notify_errors_to: string[]
   schema_id: SchemaID
 }
@@ -129,38 +163,48 @@ export interface ImportConfigForm {
   delete?: boolean
 }
 
+export interface ImportConfigSettings {
+  keep_things_order?: boolean
+  merge_on_pk?: boolean
+  disable_thing_creation?: boolean
+  disable_thing_update?: boolean
+  ignore_missing_columns?: boolean
+  restore_deleted_things?: boolean
+  allow_multiple_primary_keys?: boolean
+  delete?: boolean
+  set_untouched?: boolean
+  set_untouched_field_id?: FieldID
+  set_untouched_field_value?: ImportConfigUntouchedFieldValue
+  set_untouched_filter?: GroupClause
+  delete_filter?: GroupClause
+  ignore_case_primary_key?: boolean
+  columns: ImportConfigColumn[]
+}
 export type ImportConfigUntouchedFieldValue = Exclude<
   ThingValue,
   OpFile | ThingValueEtim | [number, number] | [number, number, number]
 >
+export const IMPORT_CONFIG_JOB_STATUSES = [
+  'pending',
+  'running',
+  'complete',
+  'error',
+] as const
+export type ImportConfigJobStatus = (typeof IMPORT_CONFIG_JOB_STATUSES)[number]
 export interface ImportConfig {
   id: ImportConfigID
   file_token: string
   source?: ImportConfigSource
   label: string
-  last_upload: string
-  last_import: string
+  last_upload?: string
+  last_import?: string
   resource_id: ResourceID
   token: string
   created_at: string
   updated_at: string
-  config: {
-    keep_things_order?: boolean
-    merge_on_pk?: boolean
-    disable_thing_creation?: boolean
-    disable_thing_update?: boolean
-    ignore_missing_columns?: boolean
-    restore_deleted_things?: boolean
-    allow_multiple_primary_keys?: boolean
-    delete?: boolean
-    set_untouched?: boolean
-    set_untouched_field_id?: FieldID
-    set_untouched_field_value?: ImportConfigUntouchedFieldValue
-    delete_filter?: GroupClause
-    ignore_case_primary_key?: boolean
-    columns: ImportConfigColumn[]
-  }
-  latest_job_status?: string
+  config: ImportConfigSettings
+  latest_job_status?: ImportConfigJobStatus
+  latest_job_filename?: string
 }
 
 export interface ImportConfigJob {
@@ -168,12 +212,14 @@ export interface ImportConfigJob {
   schema_id: SchemaID
   import_config_id: ImportConfigID
   resource_id: ResourceID
+  sequence_id?: ImportSequenceID
+  sequence_execution_identifier?: string
 
   // Author
   author?: Author
 
   // Stats
-  status: 'pending' | 'complete' | 'running'
+  status: Exclude<ImportConfigJobStatus, 'error'>
   processed_rows: number
   row_count: number
   percent: number
@@ -195,13 +241,23 @@ export interface ImportConfigJob {
   raw_file_name: string
 
   // Import results
-  touched_count: number
-  created_count: number
-  deleted_count: number
+  touched_count?: number
+  created_count?: number
+  deleted_count?: number
   touched_ids: ThingID[]
   created_ids: ThingID[]
   deleted_ids: ThingID[]
   skipped_lines: number[]
+}
+
+export interface ImportSequenceJob {
+  sequence_execution_identifier: string
+  status: (typeof IMPORT_CONFIG_JOB_STATUSES)[number]
+  error?: string
+  jobs: {
+    config_label: string
+    result: ImportConfigJob
+  }[]
 }
 
 export class ImportConfigsService extends SchemaService<ImportConfig> {
