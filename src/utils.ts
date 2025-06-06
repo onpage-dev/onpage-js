@@ -74,3 +74,7 @@ export type Optional<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>
 export type SomeRequired<Type, Key extends keyof Type> = Type & {
   [Property in Key]-?: Type[Property]
 }
+
+export function randomString(length: number = 10): string {
+  return Math.random().toString(36).substring(2, 2 + length)
+}

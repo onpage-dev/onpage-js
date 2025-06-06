@@ -143,6 +143,7 @@ export interface ImportSequence {
   token: string
   timezone: CronTimezone
   cron_times: string[]
+  configs_errors: ImportConfig[]
   last_cron_run?: string
   created_at: string
   updated_at: string

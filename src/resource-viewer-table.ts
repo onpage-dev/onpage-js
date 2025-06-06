@@ -7,7 +7,6 @@ import {
   isString,
   last,
 } from 'lodash'
-import { v4 as uuidv4 } from 'uuid'
 import { TranslatableLabel } from './dm-settings'
 import { Field, FieldID } from './field'
 import { MetaField } from './fields'
@@ -16,6 +15,7 @@ import { Resource, ResourceID } from './resource'
 import { Schema } from './schema'
 import { Thing } from './thing'
 import { ImageExportFit, ImageExportFormat } from './file'
+import { randomString } from './utils'
 
 // CONFIG
 export type TableViewID = number
@@ -224,7 +224,7 @@ export class TableFieldColumn extends TableColumnBase {
     const path = col.path?.map(id => this.table.resource.schema().field(id))
     if (path && path?.findIndex(x => !x) >= 0) throw new Error('invalid item')
 
-    this.id = col.id ?? uuidv4()
+    this.id = col.id ?? randomString()
     this.type = col.type
     this.path = path as Field[]
     this.joiner = col.joiner
@@ -282,7 +282,7 @@ export class TableSystemFieldColumn extends TableColumnBase {
     const path = col.path?.map(id => this.table.resource.schema().field(id))
     if (path && path?.findIndex(x => !x) >= 0) throw new Error('invalid item')
 
-    this.id = col.id ?? uuidv4()
+    this.id = col.id ?? randomString()
     this.labels = clone(col.labels)
     this.type = col.type
     this.meta_field = col.meta_field
@@ -346,7 +346,7 @@ export class TableStaticColumn extends TableColumnBase {
   constructor(public table: TableConfig, col: TableStaticColumnJson) {
     super(table)
 
-    this.id = col.id ?? uuidv4()
+    this.id = col.id ?? randomString()
     this.type = col.type
     this.labels = clone(col.labels)
     this.value = clone(col.value)
