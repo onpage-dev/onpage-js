@@ -549,8 +549,6 @@ export class Schema {
   }
 
   async createSnapshot(): Promise<SerializedDataJson> {
-    const w = window as any
-    w.Schema = Schema
     return {
       schema: this.getJson(),
       things: await this.downloadThings(),

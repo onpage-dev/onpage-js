@@ -24,11 +24,13 @@ const schema = await Schema.load({ token: 'abc' })
 console.log(schema.label, 'is ready')
 ```
 
-Load a project using an User Token (for internal use)
+Load a project using an User Token (for internal use).
+This will use user authentication and allows calling any API endpoint.
+Note that internal API endpoints are not stable and can change at any time without notice.
 
 ```ts
 const api = new Api({ token: 'abc', is_user_mode: true })
-const schema = api.loadSchema(123)
+const schema = await api.loadSchema(123)
 ```
 
 ### Get structure information
@@ -57,12 +59,36 @@ let products = await schema
 let prod = await schema.query('products').first()
 console.log('hello', prod.val('name'))
 
-// Count the items matching a query
-let in_stock = await schema
-  .query('products')
-  .where('quantity', '>', 0)
-  .where('pending', '>', 0)
-  .count()
+
+// Prepare a query for the next examples:
+const query = schema.query('products')
+
+// Paginate the results (page 1, 10 items per page):
+let paginated_products = await query.paginate(1, 10)
+
+// Limit and offset the results:
+let limited_products = await query.limit(10).offset(10).all()
+
+// Get ids:
+let ids = await query.ids()
+
+// Get the count:
+let count = await query.count()
+
+// Delete items (move to trash):
+await query.delete()
+
+// Force delete items (skip trash and delete all versions, use with caution - this is irreversible):
+await query.delete(true)
+
+// Restore them from trash:
+await query.restore()
+
+// Search items by status (default is active):
+let deleted_products = await query.withStatus('deleted').all()
+
+// Scan both active and deleted items:
+let all_products = await query.withStatus('any').all()
 ```
 
 ### Filters
@@ -80,6 +106,7 @@ let valid_products = schema
   .where('dimension', '>', 10) // you get it
   .all()
 ```
+
 
 ### Get thing values
 

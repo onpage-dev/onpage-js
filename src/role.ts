@@ -1,4 +1,4 @@
-import { cloneDeep, isBoolean } from 'lodash'
+import { isBoolean } from 'lodash'
 import { Field, FieldFolder, FolderView, Resource, ResourceID } from '.'
 import { CompanyID } from './company'
 import { DMSettingsID } from './dm-settings'
@@ -123,6 +123,9 @@ export type RolePermissions = {
   /** DAM */
   dam: { is_active?: boolean; can_edit?: boolean }
 
+  /** Webhooks */
+  can_manage_observers?: boolean
+
   /** Data manager */
   /** Defines permissions for the specified resources */
   custom_resources: Std<EDPermissions>
@@ -206,6 +209,11 @@ export class RolePermissionsInstance {
       custom: this.json[('custom_' + section) as LinkCustomPermissionKey],
     })
   }
+  // Webhooks
+  canManageWebhooks(): boolean {
+    return Boolean(this.json.can_manage_observers)
+  }
+
   // DAM
   canShowDAM(): boolean {
     return Boolean(this.json.dam.is_active)
@@ -480,6 +488,7 @@ export function allPermissions(): RolePermissions {
   )
   DM_CUSTOM_PERMISSION_KEYS.forEach(permission => (res[permission] = {}))
   res.can_edit_roles = true
+  res.can_manage_observers = true
   res.can_create_drafts = true
   res.can_manage_drafts = true
   res.translator = {
