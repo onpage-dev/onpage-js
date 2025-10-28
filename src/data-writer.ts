@@ -58,35 +58,26 @@ export class DataWriter {
         return this
     }
 
-    async save() {
+    async save(): Promise<ThingID[]> {
         const edits = Object.values(this.edits).filter(e => e.hasData())
-        let ret: ThingID[] = []
 
-        const chunks = chunk(edits, 1000)
-        for (const chunk of chunks) {
-            const req: ThingsBulkRequest = {
-                resource: this.resource.name,
-                things: [],
-                options: {
-                    ignore_invalid_urls: this.ignore_invalid_urls,
-                    queue_pdf_generators: this.queue_pdf_generators,
-                },
-            };
+        const req: ThingsBulkRequest = {
+            resource: this.resource.name,
+            things: [],
+            options: {
+                ignore_invalid_urls: this.ignore_invalid_urls,
+                queue_pdf_generators: this.queue_pdf_generators,
+            },
+        };
 
-            for (const edit of chunk) {
-                req.things.push(edit.toArray())
-            }
-
-            try {
-                const res = await (this.schema()).api.post('things/bulk', req)
-                if (!isArray(res.data)) throw new Error('Response from server is not an array')
-                ret = ret.concat(res.data)
-            } catch (e: any) {
-                throw e
-            }
+        for (const edit of edits) {
+            req.things.push(edit.toArray())
         }
+
+        const res = await (this.schema()).api.post<ThingID[]>('things/bulk', req)
+        if (!isArray(res.data)) throw new Error('Response from server is not an array')
         this.edits = {}
-        return ret
+        return res.data
     }
 }
 

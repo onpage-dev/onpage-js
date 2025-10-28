@@ -68,8 +68,6 @@ export interface ResourceJson extends JsonBase {
   table_configs?: any
   label?: string
   labels: { [key: string]: string }
-  description?: string
-  descriptions: { [key: string]: string }
 }
 export interface ThingJson extends JsonBase {
   id: ThingID

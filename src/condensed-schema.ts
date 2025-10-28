@@ -14,7 +14,7 @@ export interface CondensedSchema {
   suspended_at?: string
   last_data_update: string
   legal_entity_id?: number
-  company_id?: CompanyID
+  company_id: CompanyID
   copy_status?: 'started' | 'error' | 'success'
   usage_stats?: any
   backups?: SchemaBackup[]

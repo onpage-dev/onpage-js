@@ -61,6 +61,7 @@ export class ContextualFilterService extends SchemaService<ContextualFilter> {
   getContextualFilters(resource: Resource) {
     return this.items_array.filter(f => f.source.resource_id == resource.id)
   }
+  /** Returns hydrated contextual filters for a given resource */
   getFullContextualFilters(resource: Resource): FullContextualFilter[] {
     return this.getContextualFilters(resource)
       .map(f => this.parseFilter(f))

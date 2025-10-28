@@ -169,6 +169,9 @@ export type AuthoringClause = FilterBase & {
       }
     | {
         is_creation?: false
+        // If last_edit is true, the filter will be applied to the last edit of the thing
+        // if false, the filter will consider all edits of the thing in the specified time range
+        is_last_edit?: boolean
         fields?: FieldIdentifier[]
       }
   )
@@ -197,12 +200,12 @@ export function createFilterGroup(
 }
 export function createAuthoringFilter(
   resource_id: ResourceID,
-  is_creation = true,
+  mode: 'creation' | 'edit' | 'last_edit' = 'creation',
   value?: string,
   fields?: FieldID[],
   operator?: AuthoringOperator
 ): AuthoringClause {
-  if (is_creation) {
+  if (mode == 'creation') {
     return {
       type: 'authoring',
       resource_id,
@@ -215,6 +218,7 @@ export function createAuthoringFilter(
     type: 'authoring',
     resource_id,
     is_creation: false,
+    is_last_edit: mode == 'last_edit',
     operator,
     value,
     fields,

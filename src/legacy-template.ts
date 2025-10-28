@@ -1,3 +1,4 @@
+import { FieldID } from './field'
 import { ResourceID } from './resource'
 import { SchemaID } from './schema'
 
@@ -8,6 +9,7 @@ export interface LegacyTemplate {
   resource_id: ResourceID
   schema_id: SchemaID
   is_pathless: boolean
+  path?: FieldID[]
   fonts?: any
   version?: number
   data?: any

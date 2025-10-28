@@ -330,6 +330,20 @@ export class Query<
   get api() {
     return this.schema.api
   }
+  get properties_to_observe() {
+    return {
+      axios_config: this.axios_config,
+      fields: this.fields,
+      filters: this.filters,
+      order_by: this.order_by,
+      relations: this.relations,
+      resource: this.resource,
+      result_limit: this.result_limit,
+      result_offset: this.result_offset,
+      schema_id: this.schema.id,
+      type: this.type,
+    }
+  }
 
   toJson(ret?: ReturnType) {
     return JSON.stringify(this.build(ret))
@@ -373,6 +387,11 @@ export class Query<
     return clone
   }
 
+  /**
+   * WARNING:
+   * To return "relations" define relation fields as FieldQueryGroup
+   * If you define relations in the alternative ways it will return "rel_ids"
+   */
   setFields(fields: FieldQuery[], append = false): Query {
     if (append) {
       this.fields = this.fields.concat(clone(fields))
@@ -429,7 +448,7 @@ export class Query<
   async delete(forever?: boolean): Promise<ThingID[]> {
     const data = this.build('delete')
     if (forever) data.forever = true
-    const res = await this.api.delete('things', data)
+    const res = await this.api.delete('.P/things', data)
     return res.data as ThingID[]
   }
   async pluck<T extends ThingValue = ThingValue>(
@@ -660,6 +679,9 @@ export class Query<
     return this
   }
 
+  getStatus() {
+    return this.type.type !== 'root' ? undefined : this.type.options.status
+  }
   withStatus(status: QueryOptions['status']) {
     this.setOptions({ status })
     return this
@@ -678,6 +700,7 @@ export interface QueryPagination {
   page: number
   per_page: number
 }
+export type QueryStatus = 'active' | 'any' | 'deleted'
 export interface QueryOptions {
   refresh_trigger?: number
   with_parent_badge?: boolean
@@ -688,7 +711,7 @@ export interface QueryOptions {
   hyper_compact?: boolean
   hyper_compact_use_array?: boolean
   use_field_names?: boolean
-  status?: 'active' | 'any' | 'deleted'
+  status?: QueryStatus
   timemachine?: string
   load_image_thumbnail?: boolean
 }

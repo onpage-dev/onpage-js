@@ -20,6 +20,8 @@ export interface FieldValueOption {
   groups?: FolderViewID[] | null
   value: { [key: string]: string | number | undefined }
 }
+export const RELATION_TYPES = ['src', 'dst', 'sync'] as const
+export type RelationType = (typeof RELATION_TYPES)[number]
 export type FieldType =
   | 'string'
   | 'text'
@@ -50,6 +52,21 @@ export interface FieldAiOptions {
   context_images?: FieldID[][]
   additional_context?: string
 }
+
+export const VALID_FIELD_CONVERT_TARGETS = [
+  'bool',
+  'int',
+  'real',
+  'string',
+  'price',
+  'text',
+  'html',
+  'image',
+  'file',
+] as const
+export type ValidFieldConvertTarget =
+  (typeof VALID_FIELD_CONVERT_TARGETS)[number]
+
 export class Field {
   private json!: FieldJson
 
@@ -133,7 +150,7 @@ export class Field {
   get rel_field_id(): number | undefined {
     return this.json.rel_field_id
   }
-  get rel_type(): 'src' | 'dst' | 'sync' | undefined {
+  get rel_type(): RelationType | undefined {
     return this.json.rel_type
   }
   get opts(): { [key: string]: any } {
@@ -150,6 +167,71 @@ export class Field {
   }
   get is_textual() {
     return this.json.is_textual
+  }
+  get convert_options() {
+    const to_bool = !['bool', 'file', 'image'].includes(this.type)
+    const to_int = [
+      'string',
+      'text',
+      'markdown',
+      'html',
+      'real',
+      'dim1',
+    ].includes(this.type)
+    const to_real = [
+      'string',
+      'text',
+      'markdown',
+      'html',
+      'int',
+      'dim1',
+    ].includes(this.type)
+    const to_string = [
+      'markdown',
+      'html',
+      'int',
+      'real',
+      'text',
+      'date',
+      'weight',
+      'volume',
+    ].includes(this.type)
+    const to_price = to_real || to_string
+    const to_text = [
+      'markdown',
+      'html',
+      'int',
+      'real',
+      'string',
+      'date',
+      'weight',
+      'volume',
+    ].includes(this.type)
+    const to_html = ['string', 'text', 'markdown'].includes(this.type)
+    const to_image = this.type == 'file'
+    const to_file = this.type == 'image'
+    return VALID_FIELD_CONVERT_TARGETS.filter(target => {
+      switch (target) {
+        case 'bool':
+          return to_bool
+        case 'int':
+          return to_int
+        case 'real':
+          return to_real
+        case 'string':
+          return to_string
+        case 'price':
+          return to_price
+        case 'text':
+          return to_text
+        case 'html':
+          return to_html
+        case 'image':
+          return to_image
+        case 'file':
+          return to_file
+      }
+    })
   }
 
   getOptions(): undefined | FieldValueOption[] {
@@ -236,6 +318,9 @@ export class Field {
   }
   isIncomingRelation(): boolean {
     return this.type == 'relation' && this.rel_type == 'dst'
+  }
+  isSyncRelation(): boolean {
+    return this.type == 'relation' && this.rel_type == 'sync'
   }
   isMedia(): boolean {
     return this.type == 'file' || this.type == 'image'

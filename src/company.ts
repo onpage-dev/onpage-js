@@ -5,6 +5,13 @@ import { UserID, UserInfo } from './user'
 
 export type CompanyID = number
 
+export interface CompanyBasicInfo {
+  id: number
+  invoice_to_id: number
+  label: string
+  partner_id: number
+}
+
 export interface CompanyInfo {
   id: CompanyID
   name?: string

@@ -3,6 +3,8 @@ import { Schema } from '.'
 export type FtpConfigID = number
 export const FTP_PROTOCOLS = ['ftp', 'ftps', 'sftp'] as const
 export type FtpProtocol = (typeof FTP_PROTOCOLS)[number]
+export const FTPS_MODES = ['explicit', 'implicit'] as const
+export type FtpsMode = (typeof FTPS_MODES)[number]
 export interface FtpTestResult {
   success: boolean
   message?: string
@@ -16,6 +18,8 @@ export interface FtpConfig {
   host: string
   user: string
   pass?: string
+  ftps_mode?: FtpsMode
+  passive?: boolean
   created_at: string
   updated_at: string
 }

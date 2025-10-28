@@ -626,7 +626,7 @@ export class Thing<Structure extends FieldCollection | undefined = undefined> {
           }
           return ''
         })
-        .join(' - ')
+        .join(' •︎ ')
     }
     const ret: any = {
       title: to_str(slots.title),

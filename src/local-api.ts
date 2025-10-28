@@ -36,8 +36,11 @@ const check_filter: {
   '='(field: Field, values: ThingValue[], checker?: Checker): boolean {
     return values.some(v => String(v ?? '') === String(checker ?? ''))
   },
-  'in'(field: Field, values: ThingValue[], checker?: Checker): boolean {
-    if (!isArray(checker)) throw new Error('Filtering using IN operator must pass an array of values')
+  in(field: Field, values: ThingValue[], checker?: Checker): boolean {
+    if (!isArray(checker))
+      throw new Error(
+        'Filtering using IN operator must pass an array of values'
+      )
     const schecker: string[] = checker?.map(x => String(x ?? '')) ?? []
     return values.some(v => schecker.includes(String(v ?? '')))
   },
@@ -49,7 +52,10 @@ const check_filter: {
 export class LocalApi extends Backend {
   schema: Schema
   things: Map<ThingID, Thing> = Object.freeze(new Map())
-  constructor(json: SchemaJson | Schema, things: ThingJson[] | Map<ThingID, Thing>) {
+  constructor(
+    json: SchemaJson | Schema,
+    things: ThingJson[] | Map<ThingID, Thing>
+  ) {
     super()
     if (json instanceof Schema) {
       this.schema = json
@@ -65,9 +71,13 @@ export class LocalApi extends Backend {
   setThings(things: ThingJson[] | Map<ThingID, Thing>) {
     this.things.clear()
     if (things instanceof Map) {
-      things.forEach(thing => this.things.set(thing.id, new Thing(this.schema, thing.getJson())))
+      things.forEach(thing =>
+        this.things.set(thing.id, new Thing(this.schema, thing.getJson()))
+      )
     } else {
-      things.forEach(thing => this.things.set(thing.id, new Thing(this.schema, thing)))
+      things.forEach(thing =>
+        this.things.set(thing.id, new Thing(this.schema, thing))
+      )
     }
   }
 
@@ -78,7 +88,7 @@ export class LocalApi extends Backend {
   async request<T = any>(
     method: 'get' | 'post' | 'delete',
     endpoint: string,
-    data?: any,
+    data?: any
     // config?: ApiRequestConfig
   ): Promise<AxiosResponse<T>> {
     this.req_count++
@@ -116,7 +126,8 @@ export class LocalApi extends Backend {
         const rel_field = this.schema.field(request.related_to.field_id)
         if (!rel_field)
           throw new Error('cannot find field ' + request.related_to.field_id)
-        thing_query = this.things.get(request.related_to.thing_id)!
+        thing_query = this.things
+          .get(request.related_to.thing_id)!
           .relSync(rel_field.name)
       } else {
         thing_query = [...this.things.values()].filter(
@@ -196,7 +207,9 @@ function doFieldFilter(th: Thing, fc: FieldClause): boolean {
   const field = th.resolveField(fc.field)
   // console.log(`filtering on ${field?.name}`)
   if (!field) {
-    throw new Error(`Cannot find field "${fc.field}" in resource "${th.resource().label}"`)
+    throw new Error(
+      `Cannot find field "${fc.field}" in resource "${th.resource().label}"`
+    )
   }
   const values = th.values(field.name, fc.lang)
   // console.log(`values ${JSON.stringify(values)}`)
@@ -208,9 +221,41 @@ function doFieldFilter(th: Thing, fc: FieldClause): boolean {
   return check_filter[fc.operator]!(field, values, fc.value)
 }
 function doGroupFilter(th: Thing, fc: GroupClause): boolean {
-  if (!isArray(fc.children)) {
-    // console.log('error', fc)
+  // Handle relation filters (whereHas)
+  if (fc.relation) {
+    const related_things = th.getRelated(fc.relation.field)
+    if (!related_things) return false
+
+    // Apply children filters to the related things
+    const matching_related = related_things.filter(related_thing => {
+      if (!fc.is_or)
+        return !fc.children.some(t => !doGenericFilter(related_thing, t))
+      return fc.children.some(t => doGenericFilter(related_thing, t))
+    })
+
+    const count = matching_related.length
+    const target = fc.relation.value
+
+    // Apply the relation operator to count
+    switch (fc.relation.operator) {
+      case 'count_=':
+        return count === target
+      case 'count_<>':
+        return count !== target
+      case 'count_>':
+        return count > target
+      case 'count_>=':
+        return count >= target
+      case 'count_<':
+        return count < target
+      case 'count_<=':
+        return count <= target
+      default:
+        return false
+    }
   }
+
+  // Handle regular group filters (AND/OR logic)
   if (!fc.is_or) return !fc.children.some(t => !doGenericFilter(th, t))
   return fc.children.some(t => doGenericFilter(th, t))
 }
@@ -234,7 +279,22 @@ function parseRawFilters(resource: Resource, input: QueryFilter): FilterClause {
     const input2: FilterClause = input as FilterClause
     // self data
     if (input2.type == 'group') {
-      input2.children = input2.children.map(c => parseRawFilters(resource, c))
+      // If this is a relation filter, parse children in the related resource context
+      if (input2.relation) {
+        const field = resource.field(input2.relation.field)
+        if (field && field.type === 'relation') {
+          const related_resource = field.relatedResource()
+          input2.children = input2.children.map(c =>
+            parseRawFilters(related_resource, c)
+          )
+        } else {
+          input2.children = input2.children.map(c =>
+            parseRawFilters(resource, c)
+          )
+        }
+      } else {
+        input2.children = input2.children.map(c => parseRawFilters(resource, c))
+      }
     }
     return input2
   }

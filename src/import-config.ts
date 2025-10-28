@@ -298,8 +298,14 @@ export class ImportConfigsService extends SchemaService<ImportConfig> {
     return this.schema.api.post(`.s/import/with-config/${config_token}`, form)
   }
 
-  async getJobs(config_id: ImportConfigID): Promise<ImportConfigJob[]> {
-    return (await this.schema.api.get(`.S/${this.endpoint}/${config_id}/jobs`))
-      .data
+  async getJobs(
+    config_id: ImportConfigID,
+    sequence_id?: ImportSequenceID
+  ): Promise<ImportConfigJob[]> {
+    return (
+      await this.schema.api.get(`.S/${this.endpoint}/${config_id}/jobs`, {
+        sequence_id,
+      })
+    ).data
   }
 }

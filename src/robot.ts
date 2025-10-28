@@ -68,11 +68,16 @@ export interface RobotJobsResponse {
   from: number
   total: number
 }
-export interface RobotStats {
-  executed: number
-  failed: number
-  pending: number
-  running: number
+
+export const ROBOT_STAT_KEYS = [
+  'executed',
+  'failed',
+  'running',
+  'pending',
+] as const
+export type RobotStatKey = (typeof ROBOT_STAT_KEYS)[number]
+export type RobotStats = {
+  [key in RobotStatKey]: number
 }
 
 export class RobotsService extends SchemaService<Robot> {

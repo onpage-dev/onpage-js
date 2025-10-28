@@ -32,10 +32,13 @@ export interface UserForm extends UserBase {
   old_password?: string
 }
 export interface UserInfo extends UserBase {
+  feature_flags: Record<string, boolean>
   is_registered: boolean
   is_online: boolean
   /** Grants access to internal features */
   is_pro: boolean
+  /** Grants access to internal documentation */
+  show_internal_doc: boolean
   /** Grants access to domain admin route */
   is_superadmin: boolean
   is_partner: boolean

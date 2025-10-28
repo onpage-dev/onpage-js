@@ -74,12 +74,20 @@ export class ResourceSlotsService extends SchemaService<ResourceSlot> {
     super(schema, 'resources/slots')
   }
 
+  sorting = false
   async order(slots: ResourceSlot[]) {
-    await this.schema.api.post('resources/slots/order', {
-      order: slots.map(slot => slot.id),
-    })
-    this.items.clear()
-    await this.refresh()
+    try {
+      this.sorting = true
+      this.items = new Map(slots.map(slot => [slot.id, slot]))
+      await this.schema.api.post('resources/slots/order', {
+        order: slots.map(slot => slot.id),
+      })
+      await this.refresh()
+    } catch (error) {
+      console.error('Resource.ResourceSlotsService.order()', error)
+    } finally {
+      this.sorting = false
+    }
   }
 }
 export class SlotManager {
