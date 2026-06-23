@@ -46,6 +46,7 @@ export interface ImportConfigColumn {
   is_key: boolean
   hash: string
   name: string
+  note?: string
   separator?: string
   split_line_per_single_value?: boolean
   clean_with_regex?: string
