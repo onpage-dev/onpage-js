@@ -12,6 +12,12 @@ npm install onpage-js
 yarn add onpage-js
 ```
 
+### axios version
+
+Since 1.2.0 onpage-js depends on axios ^1.20.0. If your project has an older axios, npm and yarn install a separate copy of axios 1.20 for onpage-js, and requests work as before.
+
+TypeScript reports type errors only where your code hands axios objects to onpage-js: a `CancelToken` in `loadSchema()`, an `AxiosRequestConfig` passed to `get()`/`post()`/`delete()` or `setAxiosOptions()`, or `api.http` used as your `AxiosInstance`. Upgrade axios in your project to 1.20 or later to fix them.
+
 ## Usage
 
 ### Setup
