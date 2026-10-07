@@ -7,7 +7,7 @@ export type CompanyID = number
 
 export interface CompanyBasicInfo {
   id: number
-  invoice_to_id: number
+  customer_id: number
   label: string
   partner_id: number
 }
@@ -34,7 +34,7 @@ export interface CompanyInfo {
     help_email?: string
     help_phone?: string
   }
-  invoice_to_id: number
+  customer_id: number
   oauth_provider?: {
     id: string
     label: string
