@@ -80,3 +80,6 @@ async function checkResponseData() {
   const invalid: string = result.data.ok
   return ok
 }
+
+// @ts-expect-error create must reject arbitrary objects as header values
+api.http.create({ headers: { 'X-Test': { invalid: true } } })

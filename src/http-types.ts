@@ -1,3 +1,4 @@
+import type axios from 'axios'
 import type { AxiosError, AxiosInstance, AxiosRequestConfig } from 'axios'
 
 /** HTTP options accepted across Axios copies, without importing their recursive header types. */
@@ -139,29 +140,46 @@ export interface HttpInterceptorManager<V> {
 }
 
 interface HttpCalls {
-  call<T = any, R = HttpResponse<T>, D = any>(
-    config: HttpRequestConfig<D>
-  ): Promise<R>
-  call<T = any, R = HttpResponse<T>, D = any>(
+  call<T = any, R = HttpResponse<T>, D = any, P = any>(
+    config: HttpRequestConfig<D, P>
+  ): ReturnType<typeof axios.request<T, R, D, P>>
+  call<T = any, R = HttpResponse<T>, D = any, P = any>(
     url: string,
-    config?: HttpRequestConfig<D>
-  ): Promise<R>
+    config?: HttpRequestConfig<D, P>
+  ): ReturnType<typeof axios.request<T, R, D, P>>
 }
 interface HttpRead {
-  invoke<T = any, R = HttpResponse<T>, D = any>(
+  invoke<T = any, R = HttpResponse<T>, D = any, P = any>(
     url: string,
-    config?: HttpRequestConfig<D>
-  ): Promise<R>
+    config?: HttpRequestConfig<D, P>
+  ): ReturnType<typeof axios.request<T, R, D, P>>
 }
 interface HttpWrite {
-  invoke<T = any, R = HttpResponse<T>, D = any>(
+  invoke<T = any, R = HttpResponse<T>, D = any, P = any>(
     url: string,
     data?: D,
-    config?: HttpRequestConfig<D>
-  ): Promise<R>
+    config?: HttpRequestConfig<D, P>
+  ): ReturnType<typeof axios.request<T, R, D, P>>
 }
+type HttpHeaderGroups = Partial<
+  Record<
+    | 'common'
+    | 'get'
+    | 'post'
+    | 'put'
+    | 'patch'
+    | 'delete'
+    | 'head'
+    | 'options'
+    | 'query'
+    | 'purge'
+    | 'link'
+    | 'unlink',
+    HttpHeadersInput
+  >
+>
 export type HttpCreateConfig = Omit<HttpRequestConfig, 'headers'> & {
-  headers?: HttpHeadersInput | Record<string, unknown>
+  headers?: HttpHeadersInput | HttpHeaderGroups
 }
 export type HttpClient = HttpCalls['call'] & {
   defaults: Omit<HttpInternalRequestConfig, 'headers'> & { headers: any }
@@ -171,9 +189,9 @@ export type HttpClient = HttpCalls['call'] & {
   }
   create(config?: HttpCreateConfig): HttpClient
   getUri(config?: HttpRequestConfig): string
-  request<T = any, R = HttpResponse<T>, D = any>(
-    config: HttpRequestConfig<D>
-  ): Promise<R>
+  request<T = any, R = HttpResponse<T>, D = any, P = any>(
+    config: HttpRequestConfig<D, P>
+  ): ReturnType<typeof axios.request<T, R, D, P>>
   get: HttpRead['invoke']
   delete: HttpRead['invoke']
   head: HttpRead['invoke']

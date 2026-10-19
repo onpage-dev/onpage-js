@@ -19,6 +19,37 @@ const packages = JSON.parse(process.env.HTTP_COMPAT_PACKAGES || '{}')
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'onpage-http-compat-'))
 
 async function main() {
+  // Resolve native Axios from the SDK itself, independently of the foreign
+  // consumer fixtures, and cover both class-field emit strategies.
+  for (const useDefineForClassFields of [false, true]) {
+    const program = ts.createProgram(
+      [path.join(__dirname, 'http-compat-native.fixture.ts')],
+      {
+        strict: true,
+        noEmit: true,
+        skipLibCheck: false,
+        esModuleInterop: true,
+        useDefineForClassFields,
+        target: ts.ScriptTarget.ES2020,
+        module: ts.ModuleKind.CommonJS,
+        moduleResolution: ts.ModuleResolutionKind.NodeJs,
+        types: ['node'],
+        typeRoots: [
+          process.env.HTTP_COMPAT_TYPE_ROOT || path.join(root, 'node_modules/@types'),
+        ],
+        lib: ['lib.es2020.d.ts', 'lib.dom.d.ts'],
+      }
+    )
+    const errors = ts.getPreEmitDiagnostics(program)
+    if (errors.length) {
+      throw new Error(ts.formatDiagnosticsWithColorAndContext(errors, {
+        getCurrentDirectory: () => root,
+        getCanonicalFileName: value => value,
+        getNewLine: () => '\n',
+      }))
+    }
+  }
+  console.log(`Native subclass declarations passed (TS ${ts.version})`)
   for (const version of versions) {
     assert.match(version, /^\d+\.\d+\.\d+$/)
     const consumer = path.join(temp, version)

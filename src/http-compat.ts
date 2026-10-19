@@ -40,7 +40,7 @@ export function normalizeHttpConfig(
   if (config == null) return {}
   const normalized = { ...config } as AxiosRequestConfig
   const headers = config.headers
-  if (headers && typeof headers.toJSON === 'function') {
+  if (headers && 'toJSON' in headers && typeof headers.toJSON === 'function') {
     normalized.headers = serializeHeaders(
       headers as HttpHeadersObject
     ) as AxiosRequestConfig['headers']
@@ -128,14 +128,19 @@ export function compatibleHttpClient(client: HttpClientSource): HttpInstance {
       if (cached && cached.selected === selected) return cached.method
       if (
         typeof selected !== 'function' &&
-        !(key === 'query' && selected === undefined)
+        !((key === 'query' || key === 'create') && selected === undefined)
       )
         return selected
       let method: unknown
       if (key === 'create') {
         method = (config?: HttpCreateConfig) =>
           compatibleHttpClient(
-            selected.call(client, normalizeHttpConfig(config))
+            typeof selected === 'function'
+              ? selected.call(client, normalizeHttpConfig(config))
+              : axios.create(axios.mergeConfig(
+                  normalizeHttpConfig(client.defaults),
+                  normalizeHttpConfig(config)
+                ))
           )
       } else if (key === 'request') {
         method = (
@@ -164,6 +169,10 @@ export function compatibleHttpClient(client: HttpClientSource): HttpInstance {
         }
       } else {
         return selected
+      }
+      // Preserve callable metadata used by spies and other decorated methods.
+      if (typeof selected === 'function' && typeof method === 'function') {
+        Object.setPrototypeOf(method, selected)
       }
       methods.set(key, { selected, method })
       return method

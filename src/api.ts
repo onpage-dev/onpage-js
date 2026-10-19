@@ -33,21 +33,28 @@ export interface LoadSchemaParams {
   cancel_token?: HttpCancelToken
 }
 
+// Keep the public field override compatible while accepting foreign transports
+// on assignment and exposing the adapted client on reads.
+export interface Api {
+  get http(): HttpInstance
+  set http(client: HttpClientSource)
+}
+
 export class Api extends Backend {
   static default_domain: ApiDomain = 'https://app.onpage.it'
 
   private http_client!: HttpInstance
 
-  get http(): HttpInstance {
-    return this.http_client
-  }
-
-  set http(client: HttpClientSource) {
-    this.http_client = compatibleHttpClient(client)
-  }
-
   constructor(public options?: ApiOptions) {
     super()
+    Object.defineProperty(this, 'http', {
+      enumerable: true,
+      configurable: true,
+      get: () => this.http_client,
+      set: (client: HttpClientSource) => {
+        this.http_client = compatibleHttpClient(client)
+      },
+    })
     this.domain = clone(options?.domain || Api.default_domain)
     const url = this.buildUrl('api')
     this.http = axios.create({
@@ -123,6 +130,6 @@ export class Api extends Backend {
         'Content-Type': 'application/json',
       })
     }
-    return deepFreeze(this.http.post<T>(endpoint, data, config))
+    return deepFreeze(compatibleHttpClient(this.http).post<T>(endpoint, data, config))
   }
 }

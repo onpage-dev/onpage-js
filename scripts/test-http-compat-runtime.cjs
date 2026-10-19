@@ -107,6 +107,28 @@ async function runtimeChecks(root, consumer, version) {
     assert.equal(disabled.get('X-Disabled'), marker)
   }
 
+  // Native class fields replace the constructor's own accessor. Endpoint
+  // methods must still adapt their options through that caller-owned client.
+  class NativeFieldApi extends Api {
+    http = native.create({ adapter })
+  }
+  const nativeFieldApi = new NativeFieldApi()
+  assert.ok('value' in Object.getOwnPropertyDescriptor(nativeFieldApi, 'http'))
+  await assertHeaders(nativeFieldApi.get('test', {}, config()))
+  assert.equal(JSON.parse(seen.at(-1).data)._method, 'get')
+
+  // Assignment-style subclass initialization keeps the direct-call facade.
+  const subclassTransport = native.create({ adapter })
+  class AssignedApi extends Api {
+    constructor() {
+      super()
+      this.http = subclassTransport
+    }
+  }
+  const assignedApi = new AssignedApi()
+  assert.notEqual(assignedApi.http, subclassTransport)
+  await assertHeaders(assignedApi.http.get('test', config()))
+
   // Hooks and their registration IDs still belong to the original Axios instance.
   let hookCalls = 0
   const hookId = api.http.interceptors.request.use(value => {
@@ -240,6 +262,40 @@ async function runtimeChecks(root, consumer, version) {
   await api.http.get('test', config())
   assert.equal(replaced, 1)
   assert.equal(seen.at(-1).headers.get('X-Test'), version)
+
+  // Decorated callable methods retain their own metadata and restore helpers.
+  const decoratedApi = new Api()
+  decoratedApi.http.defaults.adapter = adapter
+  const originalDecoratedGet = decoratedApi.http.get
+  let decoratedCalls = 0
+  const decorated = async () => {
+    decoratedCalls++
+    return { data: 'decorated' }
+  }
+  Object.defineProperty(decorated, 'callCount', { get: () => decoratedCalls })
+  decorated.restore = () => { decoratedApi.http.get = originalDecoratedGet }
+  decoratedApi.http.get = decorated
+  assert.equal(decoratedApi.http.get.restore, decorated.restore)
+  assert.equal((await decoratedApi.http.get('test')).data, 'decorated')
+  assert.equal(decoratedApi.http.get.callCount, 1)
+  decoratedApi.http.get.restore()
+  await assertHeaders(decoratedApi.http.get('test', config()))
+
+  // Older declarations omit create(); a custom transport may omit it at runtime.
+  const withoutCreate = legacy.create({
+    adapter,
+    timeout: 987,
+    headers: { common: { 'X-Parent': 'yes' } },
+  })
+  delete withoutCreate.create
+  const fallbackApi = new Api()
+  fallbackApi.http = withoutCreate
+  const fallbackChild = fallbackApi.http.create({ headers: { common: headers() } })
+  await assertHeaders(fallbackChild.get('test'))
+  assert.equal(seen.at(-1).headers.get('X-Parent'), 'yes')
+  assert.equal(seen.at(-1).timeout, 987)
+  assert.notEqual(fallbackChild.interceptors, withoutCreate.interceptors)
+  assert.equal(withoutCreate.create, undefined)
 
   // Property definitions used by mocking libraries reach the selected client.
   const mockedApi = new Api()

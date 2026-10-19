@@ -14,13 +14,17 @@ yarn add onpage-js
 
 ### Axios compatibility
 
-The SDK depends on Axios `^1.20.0`. Your project can keep its own Axios installation: request options, `AxiosHeaders` and `CancelToken` values are adapted at the SDK boundary. Header entries containing `false`, `null` or `undefined` retain Axios's native merge semantics. Axios may infer `Content-Type` from the request body when its value is `undefined`; use `false` or `null` to suppress that header.
+The SDK depends on Axios `^1.20.0`. TypeScript 4.7 or newer is required, matching Axios's declared minimum. Your project can keep its own Axios installation: request options, `AxiosHeaders` and `CancelToken` values are adapted at the SDK boundary. Header entries containing `false`, `null` or `undefined` retain Axios's native merge semantics. Axios may infer `Content-Type` from the request body when its value is `undefined`; use `false` or `null` to suppress Axios's header. A transport such as Fetch may still infer a content type from the body.
 
 The SDK exports `HttpRequestConfig`, `HttpResponse` and `HttpError`. Request option values and response data remain typed. Transport-owned metadata and callbacks allow differences between Axios releases.
 
 `api.http` wraps the Axios instance before its configuration is merged. Direct calls, method helpers and clients returned by `api.http.create()` use the same adaptation. Assigning a caller-owned Axios instance is supported; its defaults and interceptors stay attached to that instance, while `api.http` is a wrapper with a different object identity. The supplied instance keeps its own transport version and capabilities. Replacing the client does not upgrade that transport.
 
 Do not force the SDK's Axios dependency below its declared minimum through overrides or resolutions.
+
+The compatibility overloads keep response data typed. Transport-owned response configuration can be more permissive than native Axios inference; provide `HttpResponse<T, D, H, P>` when checking its request data or params. Sealing the HTTP facade also prevents method replacement, while its defaults and interceptors remain mutable. If a supplied client has no `create()` method, derived clients use the SDK's Axios with merged defaults.
+
+A subclass field can replace the wrapped client when native class field semantics are enabled. Assigning `this.http` in the subclass constructor keeps direct calls adapted. SDK endpoint methods adapt request options even when a subclass field replaces the wrapper; direct calls through that replacement use its transport.
 
 Run `yarn test:http-compat` for compilation and offline request checks against Axios 1.2.6, 1.4.0, 1.7.7, 1.9.0, 1.13.6, 1.18.1 and 1.20.0. Historical packages are downloaded into a temporary test directory; they are not SDK dependencies. `HTTP_COMPAT_PACKAGES` accepts a JSON map from version to an existing package directory for offline runs. `HTTP_COMPAT_TYPESCRIPT` and `HTTP_COMPAT_TYPE_ROOT` select another compiler and its Node type declarations.
 
