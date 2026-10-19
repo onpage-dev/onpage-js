@@ -1,4 +1,4 @@
-import { AxiosRequestConfig, AxiosResponse } from 'axios'
+import { HttpRequestConfig, HttpResponse } from './http-types'
 import { isArray, map } from 'lodash'
 import { ThingsRequestBody } from './query'
 import { Schema, SchemaJson } from './schema'
@@ -6,7 +6,7 @@ import { ViewID } from './view'
 import { ApiDomain } from './api'
 
 export type ApiRequestConfig = Omit<
-  AxiosRequestConfig,
+  HttpRequestConfig,
   'url' | 'method' | 'data'
 >
 export type GetThingsEndpoint = Endpoint<'get:things', ThingsRequestBody, void>
@@ -52,7 +52,7 @@ export abstract class Backend {
     endpoint: string,
     params: any = {},
     config?: ApiRequestConfig
-  ): Promise<AxiosResponse<T>> {
+  ): Promise<HttpResponse<T>> {
     return this.request<T>('get', endpoint, params, config)
   }
 
@@ -73,7 +73,7 @@ export abstract class Backend {
     endpoint: string,
     data?: any,
     config?: ApiRequestConfig
-  ): Promise<AxiosResponse<T>>
+  ): Promise<HttpResponse<T>>
   abstract clone(): void
 
   getExtension(name?: string) {

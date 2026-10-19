@@ -29,6 +29,7 @@
     "build": "tsc --declaration",
     "lint": "eslint src/",
     "test": "mocha --timeout 5000",
+    "test:http-compat": "yarn build && node scripts/test-http-compat.cjs",
     "fix": "eslint --fix src/"
   },
   "dependencies": {

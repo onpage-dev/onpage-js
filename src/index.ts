@@ -1,4 +1,5 @@
-export { AxiosError as ApiError } from 'axios'
+export * from './http-error'
+export * from './http-types'
 export * from './api'
 export * from './api-token'
 export * from './author'

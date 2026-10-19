@@ -12,11 +12,17 @@ npm install onpage-js
 yarn add onpage-js
 ```
 
-### axios version
+### Axios compatibility
 
-Since 1.2.0 onpage-js depends on axios ^1.20.0. If your project has an older axios, npm and yarn install a separate copy of axios 1.20 for onpage-js, and requests work as before.
+The SDK depends on Axios `^1.20.0`. Your project can keep its own Axios installation: request options, `AxiosHeaders` and `CancelToken` values are adapted at the SDK boundary. Header entries containing `false`, `null` or `undefined` retain Axios's native merge semantics. Axios may infer `Content-Type` from the request body when its value is `undefined`; use `false` or `null` to suppress that header.
 
-TypeScript reports type errors only where your code hands axios objects to onpage-js: a `CancelToken` in `loadSchema()`, an `AxiosRequestConfig` passed to `get()`/`post()`/`delete()` or `setAxiosOptions()`, or `api.http` used as your `AxiosInstance`. Upgrade axios in your project to 1.20 or later to fix them.
+The SDK exports `HttpRequestConfig`, `HttpResponse` and `HttpError`. Request option values and response data remain typed. Transport-owned metadata and callbacks allow differences between Axios releases.
+
+`api.http` wraps the Axios instance before its configuration is merged. Direct calls, method helpers and clients returned by `api.http.create()` use the same adaptation. Assigning a caller-owned Axios instance is supported; its defaults and interceptors stay attached to that instance, while `api.http` is a wrapper with a different object identity. The supplied instance keeps its own transport version and capabilities. Replacing the client does not upgrade that transport.
+
+Do not force the SDK's Axios dependency below its declared minimum through overrides or resolutions.
+
+Run `yarn test:http-compat` for compilation and offline request checks against Axios 1.2.6, 1.4.0, 1.7.7, 1.9.0, 1.13.6, 1.18.1 and 1.20.0. Historical packages are downloaded into a temporary test directory; they are not SDK dependencies. `HTTP_COMPAT_PACKAGES` accepts a JSON map from version to an existing package directory for offline runs. `HTTP_COMPAT_TYPESCRIPT` and `HTTP_COMPAT_TYPE_ROOT` select another compiler and its Node type declarations.
 
 ## Usage
 

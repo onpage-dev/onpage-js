@@ -1,4 +1,4 @@
-import { AxiosResponse } from 'axios'
+import { HttpResponse } from './http-types'
 import { isArray, isEmpty, isNumber, isObject, isString } from 'lodash'
 import { Field, FieldIdentifier, Resource } from '.'
 import { Backend } from './backend'
@@ -90,17 +90,17 @@ export class LocalApi extends Backend {
     endpoint: string,
     data?: any
     // config?: ApiRequestConfig
-  ): Promise<AxiosResponse<T>> {
+  ): Promise<HttpResponse<T>> {
     this.req_count++
     if (method == 'get' && endpoint == 'things') {
       return {
         data: this.thingsEndpoint(data),
-      } as AxiosResponse<T>
+      } as HttpResponse<T>
     }
     if (method == 'get' && endpoint == 'schema') {
       return {
         data: this.schema,
-      } as AxiosResponse<T>
+      } as HttpResponse<T>
     }
 
     throw new Error('not implemented' + method + endpoint)

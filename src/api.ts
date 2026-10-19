@@ -1,4 +1,6 @@
-import axios, { AxiosInstance, AxiosResponse, CancelToken } from 'axios'
+import axios from 'axios'
+import { HttpCancelToken, HttpClientSource, HttpInstance, HttpResponse } from './http-types'
+import { compatibleHttpClient } from './http-compat'
 import { clone } from 'lodash'
 import { ApiTokenValue, Identifier, ViewID } from '.'
 import { ApiRequestConfig, Backend } from './backend'
@@ -28,13 +30,21 @@ export interface ApiOptions {
 export interface LoadSchemaParams {
   schema_id?: Identifier
   view_id?: ViewID
-  cancel_token?: CancelToken
+  cancel_token?: HttpCancelToken
 }
 
 export class Api extends Backend {
   static default_domain: ApiDomain = 'https://app.onpage.it'
 
-  http: AxiosInstance
+  private http_client!: HttpInstance
+
+  get http(): HttpInstance {
+    return this.http_client
+  }
+
+  set http(client: HttpClientSource) {
+    this.http_client = compatibleHttpClient(client)
+  }
 
   constructor(public options?: ApiOptions) {
     super()
@@ -98,12 +108,11 @@ export class Api extends Backend {
     endpoint: string,
     data?: any,
     config: ApiRequestConfig = {}
-  ): Promise<AxiosResponse<T>> {
+  ): Promise<HttpResponse<T>> {
     this.req_count++
     if (method.toLowerCase() != 'post') {
       if (!data) data = {}
       data._method = method
-      method = 'post'
     }
     if (data.constructor?.name == 'FormData') {
       Object.assign(config, {
@@ -114,6 +123,6 @@ export class Api extends Backend {
         'Content-Type': 'application/json',
       })
     }
-    return deepFreeze(this.http[method](endpoint, data, config))
+    return deepFreeze(this.http.post<T>(endpoint, data, config))
   }
 }

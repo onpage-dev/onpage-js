@@ -1,4 +1,4 @@
-import { AxiosRequestConfig } from 'axios'
+import { HttpRequestConfig } from './http-types'
 import { clone, cloneDeep, isArray, isObject, last, pick } from 'lodash'
 import { Field, FieldID, FieldIdentifier } from './field'
 import { META_FIELDS, MetaField } from './fields'
@@ -314,7 +314,7 @@ export class Query<
 > extends FilterHelper {
   private fields: FieldQuery[] = ['+']
   private trash = false
-  private axios_config?: AxiosRequestConfig
+  private axios_config?: HttpRequestConfig
   private relations: Map<string, Query> = new Map()
   protected order_by?: OrderBy
   protected result_limit?: number
@@ -667,7 +667,7 @@ export class Query<
     }
     return this
   }
-  setAxiosOptions(config: AxiosRequestConfig) {
+  setAxiosOptions(config: HttpRequestConfig) {
     this.axios_config = config
     return this
   }
